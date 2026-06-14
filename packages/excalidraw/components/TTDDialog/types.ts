@@ -92,6 +92,9 @@ export namespace TTTDDialog {
     onChunk?: (chunk: string) => void;
     onStreamCreated?: () => void;
     signal?: AbortSignal;
+    provider?: "default" | "ollama";
+    ollamaUrl?: string;
+    ollamaModel?: string;
   };
 
   export type OnTextSubmitRetValue = {

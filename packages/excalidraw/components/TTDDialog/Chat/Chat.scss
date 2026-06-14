@@ -30,6 +30,133 @@ $verticalBreakpoint: 861px;
       min-height: 200px;
     }
 
+    &__config {
+      flex-shrink: 0;
+      padding: 0.5rem 0.75rem 0 0.75rem;
+    }
+
+    &__config-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 0.5rem;
+    }
+
+    &__config-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 120px;
+
+      &--url {
+        flex: 1 1 160px;
+      }
+    }
+
+    &__config-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--color-gray-50);
+      user-select: none;
+    }
+
+    &__config-select,
+    &__config-input {
+      font-family: inherit;
+      font-size: 0.8rem;
+      height: 28px;
+      padding: 0 0.5rem;
+      border: 1px solid var(--dialog-border-color);
+      border-radius: var(--border-radius-md);
+      background: var(--color-surface-lowest);
+      color: var(--color-on-surface);
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+      appearance: auto;
+
+      &:focus,
+      &:hover {
+        border-color: var(--color-primary);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    &__config-input {
+      cursor: text;
+      width: 100%;
+      padding-right: 0.5rem;
+    }
+
+    &__config-select-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+
+      .chat-interface__config-select {
+        flex: 1;
+      }
+    }
+
+    &__config-refresh-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--dialog-border-color);
+      border-radius: var(--border-radius-md);
+      background: var(--color-surface-lowest);
+      color: var(--color-on-surface);
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      flex-shrink: 0;
+
+      &:hover {
+        background: var(--color-surface-low);
+        border-color: var(--color-primary);
+      }
+    }
+
+    &__config-warning {
+      margin-top: 0.4rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: var(--border-radius-md);
+      background: var(--color-warning-background);
+      color: var(--color-warning-color);
+      font-size: 0.75rem;
+      line-height: 1.5;
+      border-left: 3px solid var(--color-warning);
+
+      strong {
+        font-weight: 700;
+      }
+    }
+
+    &__config-troubleshooting {
+      display: block;
+      margin-top: 0.25rem;
+      opacity: 0.9;
+    }
+
+    &__config-code {
+      display: block;
+      margin-top: 0.25rem;
+      padding: 0.25rem 0.4rem;
+      border-radius: var(--border-radius-sm);
+      background: rgba(0, 0, 0, 0.12);
+      font-family: monospace;
+      font-size: 0.7rem;
+      word-break: break-all;
+    }
+
     &__messages {
       flex: 1 1 0;
       overflow-y: auto;

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useLayoutEffect } from "react";
+import React, { useRef, useEffect, useLayoutEffect, useState } from "react";
 import { KEYS } from "@excalidraw/common";
 
 import { ArrowRightIcon, stop as StopIcon } from "../../icons";
@@ -55,6 +55,74 @@ export const ChatInterface = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const [provider, setProvider] = useState<"default" | "ollama">(() => {
+    return (localStorage.getItem("yatri-draw-ttd-provider") as "default" | "ollama") || "default";
+  });
+  const [ollamaUrl, setOllamaUrl] = useState(() => {
+    return localStorage.getItem("yatri-draw-ttd-ollama-url") || "http://localhost:11434";
+  });
+  const [ollamaModel, setOllamaModel] = useState(() => {
+    return localStorage.getItem("yatri-draw-ttd-ollama-model") || "";
+  });
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [ollamaStatus, setOllamaStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [ollamaError, setOllamaError] = useState<string | null>(null);
+
+  const fetchModels = async (url: string) => {
+    setOllamaStatus("loading");
+    setOllamaError(null);
+    try {
+      const res = await fetch(`${url}/api/tags`);
+      if (!res.ok) {
+        throw new Error(`Ollama returned status ${res.status}`);
+      }
+      const data = await res.json();
+      const models = (data.models || []).map((m: any) => m.name);
+      setOllamaModels(models);
+      setOllamaStatus("success");
+      if (models.length > 0) {
+        if (!models.includes(ollamaModel)) {
+          setOllamaModel(models[0]);
+          localStorage.setItem("yatri-draw-ttd-ollama-model", models[0]);
+        }
+      } else {
+        setOllamaModel("");
+        localStorage.removeItem("yatri-draw-ttd-ollama-model");
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch Ollama models:", err);
+      setOllamaModels([]);
+      setOllamaStatus("error");
+      setOllamaError(
+        err.message || "Could not connect to Ollama. Make sure it is running and CORS is enabled."
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (provider === "ollama") {
+      fetchModels(ollamaUrl);
+    }
+  }, [provider, ollamaUrl]);
+
+  const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextProvider = e.target.value as "default" | "ollama";
+    setProvider(nextProvider);
+    localStorage.setItem("yatri-draw-ttd-provider", nextProvider);
+  };
+
+  const handleOllamaUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextUrl = e.target.value;
+    setOllamaUrl(nextUrl);
+    localStorage.setItem("yatri-draw-ttd-ollama-url", nextUrl);
+  };
+
+  const handleOllamaModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextModel = e.target.value;
+    setOllamaModel(nextModel);
+    localStorage.setItem("yatri-draw-ttd-ollama-model", nextModel);
+  };
+
   useLayoutEffect(() => {
     messagesEndRef.current?.scrollIntoView();
   }, [messages]);
@@ -109,6 +177,78 @@ export const ChatInterface = ({
 
   return (
     <div className="chat-interface">
+      <div className="chat-interface__config">
+        <div className="chat-interface__config-row">
+          <div className="chat-interface__config-field">
+            <label className="chat-interface__config-label">AI Provider</label>
+            <select
+              className="chat-interface__config-select"
+              value={provider}
+              onChange={handleProviderChange}
+            >
+              <option value="default">Default AI</option>
+              <option value="ollama">Local Ollama</option>
+            </select>
+          </div>
+
+          {provider === "ollama" && (
+            <>
+              <div className="chat-interface__config-field chat-interface__config-field--url">
+                <label className="chat-interface__config-label">Ollama URL</label>
+                <input
+                  type="text"
+                  className="chat-interface__config-input"
+                  value={ollamaUrl}
+                  onChange={handleOllamaUrlChange}
+                  placeholder="http://localhost:11434"
+                />
+              </div>
+
+              <div className="chat-interface__config-field">
+                <label className="chat-interface__config-label">Model</label>
+                <div className="chat-interface__config-select-wrapper">
+                  <select
+                    className="chat-interface__config-select"
+                    value={ollamaModel}
+                    onChange={handleOllamaModelChange}
+                    disabled={ollamaModels.length === 0}
+                  >
+                    {ollamaModels.length === 0 ? (
+                      <option value="">No models found</option>
+                    ) : (
+                      ollamaModels.map((model) => (
+                        <option key={model} value={model}>
+                          {model}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <button
+                    type="button"
+                    className="chat-interface__config-refresh-btn"
+                    onClick={() => fetchModels(ollamaUrl)}
+                    title="Refresh models"
+                  >
+                    🔄
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {provider === "ollama" && ollamaStatus === "error" && (
+          <div className="chat-interface__config-warning">
+            <strong>Connection Error:</strong> {ollamaError}
+            <br />
+            <span className="chat-interface__config-troubleshooting">
+              To allow connections, make sure Ollama is serving with CORS enabled:
+              <code className="chat-interface__config-code">OLLAMA_ORIGINS="*" ollama serve</code>
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="chat-interface__messages">
         {messages.length === 0 ? (
           <div className="chat-interface__welcome-screen">

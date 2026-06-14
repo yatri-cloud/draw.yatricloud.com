@@ -105,6 +105,10 @@ export const useTextGeneration = ({
         { role: "user", content: prompt },
       ];
 
+      const provider = (localStorage.getItem("yatri-draw-ttd-provider") as "default" | "ollama") || "default";
+      const ollamaUrl = localStorage.getItem("yatri-draw-ttd-ollama-url") || "http://localhost:11434";
+      const ollamaModel = localStorage.getItem("yatri-draw-ttd-ollama-model") || "";
+
       const { generatedResponse, error, rateLimit, rateLimitRemaining } =
         await onTextSubmit({
           messages,
@@ -128,6 +132,9 @@ export const useTextGeneration = ({
             });
           },
           signal: abortController.signal,
+          provider,
+          ollamaUrl,
+          ollamaModel,
         });
 
       setChatHistory((prev) =>
