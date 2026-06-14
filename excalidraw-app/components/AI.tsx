@@ -38,34 +38,44 @@ async function ollamaStreamFetch({
 
 CRITICAL OUTPUT RULES:
 - Output ONLY the raw Mermaid syntax — absolutely no markdown code fences (\`\`\`), no explanation, no comments, no preamble.
-- Start your response directly with the diagram type keyword (e.g. "flowchart LR", "sequenceDiagram", "erDiagram", etc.).
+- Start your response directly with the diagram type keyword (e.g. "flowchart TD", "sequenceDiagram", "erDiagram", etc.).
 - Ensure the syntax is valid and parseable by Mermaid.js v10+.
 
-MERMAID SYNTAX RULES — follow these exactly to avoid parse errors:
-1. Node labels with special characters MUST use double quotes: write A["Label (with parens)"] NOT A[Label (with parens)]
+MERMAID SYNTAX RULES — follow ALL of these exactly to avoid parse errors:
+1. Node labels with special characters MUST use double quotes: A["Label (with parens)"] NOT A[Label (with parens)]
 2. Parentheses () inside ANY bracket style [, (, {, > MUST be quoted: A["Cache (Redis)"] ✓ — A[Cache (Redis)] ✗
-3. Subgraph IDs must be simple alphanumeric strings, no spaces: use "subgraph FrontendLayer" not "subgraph Frontend Layer"
-4. Subgraph display labels go in quotes after the ID: subgraph FE["Frontend Layer"]
-5. Never use curly braces {} or special chars in node IDs — only in labels (quoted)
-6. Arrow labels with spaces must be quoted: A -->|"my label"| B
-7. For flowcharts prefer "flowchart TD" or "flowchart LR"
-8. Keep node IDs short and alphanumeric: use "AuthSvc" not "Authentication Service"
-9. Never use parentheses () in node IDs
-10. Semicolons at end of lines are optional — omit them
+3. Subgraph IDs must be simple alphanumeric with no spaces: "subgraph StorageLayer" not "subgraph Storage Layer"
+4. Subgraph display labels go in quotes after the ID: subgraph SL["Storage Layer"]
+5. CRITICAL — Node IDs must NEVER match subgraph IDs. If you have a subgraph called "CDN", any node representing CDN must use a different ID like "CDNNode" or "CdnSvc". Using the same ID for both a node and a subgraph causes a cycle error.
+6. CRITICAL — Every node must be declared ONCE. If a node appears inside a subgraph, never redeclare it outside. Only reference it by ID in arrows outside.
+7. CRITICAL — Never draw arrows directly TO or FROM a subgraph name/ID. Only connect individual nodes inside subgraphs.
+8. Never use curly braces {} or special chars in node IDs — only in labels (quoted)
+9. Arrow labels with spaces must be quoted: A -->|"my label"| B
+10. For flowcharts prefer "flowchart TD" or "flowchart LR"
+11. Keep node IDs short and alphanumeric: use "AuthSvc" not "Authentication Service"
+12. Never use parentheses () in node IDs
 
-EXAMPLE of correct syntax:
+EXAMPLE of correct syntax (note CDN is a node inside a subgraph, not a subgraph itself):
 flowchart TD
     subgraph FE["Frontend"]
-        U["User Browser"]
+        User["User Browser"]
     end
-    subgraph BE["Backend"]
+    subgraph BE["Backend Services"]
         API["API Gateway"]
         Auth["Auth Service"]
-        Cache["Cache (Redis)"]
+        Feed["Feed Service"]
     end
-    U --> API
+    subgraph Store["Storage & CDN"]
+        S3["S3 Storage"]
+        CdnNode["CDN"]
+        RedisCache["Cache (Redis)"]
+    end
+    User --> API
     API --> Auth
-    API --> Cache`;
+    API --> Feed
+    Feed --> RedisCache
+    Feed --> S3
+    S3 --> CdnNode`;
 
   try {
     const response = await fetch(`${url}/api/chat`, {
