@@ -66,9 +66,29 @@ $fullScreenModalBreakpoint: 600px;
     font-weight: 600;
     font-family: inherit;
     letter-spacing: 0.4px;
+    border-radius: var(--border-radius-md);
+    transition: color 0.15s ease, background 0.15s ease;
+    position: relative;
+
+    &:hover {
+      color: var(--color-primary);
+      background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+    }
 
     &[data-state="active"] {
-      border-bottom: 2px solid var(--color-primary);
+      color: var(--color-primary);
+      background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+
+      &::after {
+        content: "";
+        position: absolute;
+        bottom: -1px;
+        left: 0.75rem;
+        right: 0.75rem;
+        height: 2px;
+        background: var(--color-primary);
+        border-radius: 2px 2px 0 0;
+      }
     }
 
     &__content {
@@ -80,22 +100,28 @@ $fullScreenModalBreakpoint: 600px;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 1px 6px;
-      margin-left: 10px;
-      font-size: 10px;
+      padding: 1px 7px;
+      margin-left: 8px;
+      font-size: 9px;
+      font-weight: 700;
       border-radius: 12px;
-      background: var(--color-promo);
-      color: var(--color-surface-lowest);
+      background: var(--color-primary);
+      color: #fff;
+      letter-spacing: 0.03em;
     }
   }
 
   .ttd-dialog-triggers {
-    border-bottom: 1px solid var(--color-surface-high);
+    border-bottom: 1px solid var(--dialog-border-color);
     margin-bottom: 1rem;
-    padding-inline: 2.5rem;
+    padding-inline: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
 
     @media screen and (max-width: $verticalBreakpoint) {
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
+      padding-inline: 1rem;
     }
   }
 
