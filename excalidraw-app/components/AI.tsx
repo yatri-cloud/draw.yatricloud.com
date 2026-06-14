@@ -36,11 +36,36 @@ async function ollamaStreamFetch({
 }) {
   const SYSTEM_PROMPT = `You are a Mermaid.js diagram expert. Your sole job is to convert the user's natural-language description into a valid Mermaid diagram definition.
 
-Rules:
-- Output ONLY the raw Mermaid syntax — no markdown fences, no explanation, no comments.
-- Start directly with the diagram type keyword (e.g. "flowchart LR", "sequenceDiagram", "erDiagram", etc.).
+CRITICAL OUTPUT RULES:
+- Output ONLY the raw Mermaid syntax — absolutely no markdown code fences (\`\`\`), no explanation, no comments, no preamble.
+- Start your response directly with the diagram type keyword (e.g. "flowchart LR", "sequenceDiagram", "erDiagram", etc.).
 - Ensure the syntax is valid and parseable by Mermaid.js v10+.
-- If you are unsure about a detail, make a reasonable assumption and keep the diagram correct.`;
+
+MERMAID SYNTAX RULES — follow these exactly to avoid parse errors:
+1. Node labels with special characters MUST use double quotes: write A["Label (with parens)"] NOT A[Label (with parens)]
+2. Parentheses () inside ANY bracket style [, (, {, > MUST be quoted: A["Cache (Redis)"] ✓ — A[Cache (Redis)] ✗
+3. Subgraph IDs must be simple alphanumeric strings, no spaces: use "subgraph FrontendLayer" not "subgraph Frontend Layer"
+4. Subgraph display labels go in quotes after the ID: subgraph FE["Frontend Layer"]
+5. Never use curly braces {} or special chars in node IDs — only in labels (quoted)
+6. Arrow labels with spaces must be quoted: A -->|"my label"| B
+7. For flowcharts prefer "flowchart TD" or "flowchart LR"
+8. Keep node IDs short and alphanumeric: use "AuthSvc" not "Authentication Service"
+9. Never use parentheses () in node IDs
+10. Semicolons at end of lines are optional — omit them
+
+EXAMPLE of correct syntax:
+flowchart TD
+    subgraph FE["Frontend"]
+        U["User Browser"]
+    end
+    subgraph BE["Backend"]
+        API["API Gateway"]
+        Auth["Auth Service"]
+        Cache["Cache (Redis)"]
+    end
+    U --> API
+    API --> Auth
+    API --> Cache`;
 
   try {
     const response = await fetch(`${url}/api/chat`, {
