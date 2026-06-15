@@ -40,135 +40,6 @@ export const resetPreview = ({
   canvasNode.replaceChildren();
 };
 
-export const convertMermaidToExcalidraw = async ({
-  canvasRef,
-  mermaidToExcalidrawLib,
-  mermaidDefinition,
-  setError,
-  data,
-  theme,
-}: {
-  canvasRef: React.RefObject<HTMLDivElement | null>;
-  mermaidToExcalidrawLib: MermaidToExcalidrawLibProps;
-  mermaidDefinition: string;
-  setError: (error: Error | null) => void;
-  data: React.MutableRefObject<{
-    elements: readonly NonDeletedExcalidrawElement[];
-    files: BinaryFiles | null;
-  }>;
-  theme: Theme;
-}): Promise<{ success: true } | { success: false; error?: Error }> => {
-  const canvasNode = canvasRef.current;
-  const parent = canvasNode?.parentElement;
-
-  if (!canvasNode || !parent) {
-    return { success: false };
-  }
-
-  if (!mermaidDefinition) {
-    resetPreview({ canvasRef, setError });
-    return { success: false };
-  }
-
-  let ret;
-  try {
-    const api = await mermaidToExcalidrawLib.api;
-
-    try {
-      ret = await api.parseMermaidToExcalidraw(mermaidDefinition);
-    } catch (err: unknown) {
-      const originalParseError = err as Error;
-
-      if (!mermaidDefinition.includes('"')) {
-        return { success: false, error: originalParseError };
-      }
-
-      try {
-        ret = await api.parseMermaidToExcalidraw(
-          mermaidDefinition.replace(/"/g, "'"),
-        );
-      } catch {
-        // Keep the original error so line/column references stay aligned with
-        // the user's unmodified input.
-        return { success: false, error: originalParseError };
-      }
-    }
-
-    const { elements, files = {} } = ret;
-    setError(null);
-
-    data.current = {
-      elements: convertToExcalidrawElements(elements, {
-        regenerateIds: true,
-      }),
-      files,
-    };
-
-    const canvas = await exportToCanvas({
-      elements: data.current.elements,
-      files: data.current.files,
-      exportPadding: DEFAULT_EXPORT_PADDING,
-      maxWidthOrHeight:
-        Math.max(parent.offsetWidth, parent.offsetHeight) *
-        window.devicePixelRatio,
-      appState: {
-        exportWithDarkMode: theme === THEME.DARK,
-      },
-    });
-
-    parent.style.background = "var(--default-bg-color)";
-    canvasNode.replaceChildren(canvas);
-    return { success: true };
-  } catch (err: any) {
-    parent.style.background = "var(--default-bg-color)";
-    if (mermaidDefinition) {
-      setError(err);
-    }
-
-    // Return error so caller can display meaningful error message
-    return { success: false, error: err };
-  }
-};
-export const saveMermaidDataToStorage = (mermaidDefinition: string) => {
-  EditorLocalStorage.set(
-    EDITOR_LS_KEYS.MERMAID_TO_EXCALIDRAW,
-    mermaidDefinition,
-  );
-};
-
-export const insertToEditor = ({
-  app,
-  data,
-  text,
-  shouldSaveMermaidDataToStorage,
-}: {
-  app: AppClassProperties;
-  data: React.MutableRefObject<{
-    elements: readonly NonDeletedExcalidrawElement[];
-    files: BinaryFiles | null;
-  }>;
-  text?: string;
-  shouldSaveMermaidDataToStorage?: boolean;
-}) => {
-  const { elements: newElements, files } = data.current;
-
-  if (!newElements.length) {
-    return;
-  }
-
-  app.addElementsFromPasteOrLibrary({
-    elements: newElements,
-    files,
-    position: "center",
-    fitToContent: true,
-  });
-  app.setOpenDialog(null);
-
-  if (shouldSaveMermaidDataToStorage && text) {
-    saveMermaidDataToStorage(text);
-  }
-};
-
 export const autoQuoteMermaidLabels = (mermaidCode: string): string => {
   if (!mermaidCode) {
     return "";
@@ -250,4 +121,135 @@ export const cleanMermaidMessage = (content: string): string => {
 
   // Auto-quote unquoted labels to prevent syntax errors
   return autoQuoteMermaidLabels(cleaned);
+};
+
+export const convertMermaidToExcalidraw = async ({
+  canvasRef,
+  mermaidToExcalidrawLib,
+  mermaidDefinition,
+  setError,
+  data,
+  theme,
+}: {
+  canvasRef: React.RefObject<HTMLDivElement | null>;
+  mermaidToExcalidrawLib: MermaidToExcalidrawLibProps;
+  mermaidDefinition: string;
+  setError: (error: Error | null) => void;
+  data: React.MutableRefObject<{
+    elements: readonly NonDeletedExcalidrawElement[];
+    files: BinaryFiles | null;
+  }>;
+  theme: Theme;
+}): Promise<{ success: true } | { success: false; error?: Error }> => {
+  const canvasNode = canvasRef.current;
+  const parent = canvasNode?.parentElement;
+
+  if (!canvasNode || !parent) {
+    return { success: false };
+  }
+
+  const cleanedDefinition = cleanMermaidMessage(mermaidDefinition) || mermaidDefinition;
+
+  if (!cleanedDefinition) {
+    resetPreview({ canvasRef, setError });
+    return { success: false };
+  }
+
+  let ret;
+  try {
+    const api = await mermaidToExcalidrawLib.api;
+
+    try {
+      ret = await api.parseMermaidToExcalidraw(cleanedDefinition);
+    } catch (err: unknown) {
+      const originalParseError = err as Error;
+
+      if (!cleanedDefinition.includes('"')) {
+        return { success: false, error: originalParseError };
+      }
+
+      try {
+        ret = await api.parseMermaidToExcalidraw(
+          cleanedDefinition.replace(/"/g, "'"),
+        );
+      } catch {
+        // Keep the original error so line/column references stay aligned with
+        // the user's unmodified input.
+        return { success: false, error: originalParseError };
+      }
+    }
+
+    const { elements, files = {} } = ret;
+    setError(null);
+
+    data.current = {
+      elements: convertToExcalidrawElements(elements, {
+        regenerateIds: true,
+      }),
+      files,
+    };
+
+    const canvas = await exportToCanvas({
+      elements: data.current.elements,
+      files: data.current.files,
+      exportPadding: DEFAULT_EXPORT_PADDING,
+      maxWidthOrHeight:
+        Math.max(parent.offsetWidth, parent.offsetHeight) *
+        window.devicePixelRatio,
+      appState: {
+        exportWithDarkMode: theme === THEME.DARK,
+      },
+    });
+
+    parent.style.background = "var(--default-bg-color)";
+    canvasNode.replaceChildren(canvas);
+    return { success: true };
+  } catch (err: any) {
+    parent.style.background = "var(--default-bg-color)";
+    if (cleanedDefinition) {
+      setError(err);
+    }
+
+    // Return error so caller can display meaningful error message
+    return { success: false, error: err };
+  }
+};
+export const saveMermaidDataToStorage = (mermaidDefinition: string) => {
+  EditorLocalStorage.set(
+    EDITOR_LS_KEYS.MERMAID_TO_EXCALIDRAW,
+    mermaidDefinition,
+  );
+};
+
+export const insertToEditor = ({
+  app,
+  data,
+  text,
+  shouldSaveMermaidDataToStorage,
+}: {
+  app: AppClassProperties;
+  data: React.MutableRefObject<{
+    elements: readonly NonDeletedExcalidrawElement[];
+    files: BinaryFiles | null;
+  }>;
+  text?: string;
+  shouldSaveMermaidDataToStorage?: boolean;
+}) => {
+  const { elements: newElements, files } = data.current;
+
+  if (!newElements.length) {
+    return;
+  }
+
+  app.addElementsFromPasteOrLibrary({
+    elements: newElements,
+    files,
+    position: "center",
+    fitToContent: true,
+  });
+  app.setOpenDialog(null);
+
+  if (shouldSaveMermaidDataToStorage && text) {
+    saveMermaidDataToStorage(text);
+  }
 };
