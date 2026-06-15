@@ -5,8 +5,7 @@
  * Set in Vercel dashboard → Project Settings → Environment Variables:
  *   YATRI_AI_BASE     = https://your-yatri-ai-server.com  (no trailing slash)
  *   YATRI_AI_API_KEY  = <your key>
- */
-export const config = { runtime: "edge" };
+export const maxDuration = 60; // 60 seconds is the maximum for Hobby tier
 
 const MERMAID_SYSTEM_CONTEXT = `You are a Mermaid.js diagram expert. Convert the user's description into a valid Mermaid diagram.
 
