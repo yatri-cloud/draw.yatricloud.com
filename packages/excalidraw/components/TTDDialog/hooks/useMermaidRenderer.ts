@@ -5,7 +5,7 @@ import type { NonDeletedExcalidrawElement } from "@excalidraw/element/types";
 import { useAtom } from "../../../editor-jotai";
 
 import { chatHistoryAtom, errorAtom, showPreviewAtom } from "../TTDContext";
-import { convertMermaidToExcalidraw } from "../common";
+import { convertMermaidToExcalidraw, cleanMermaidMessage } from "../common";
 import { isValidMermaidSyntax } from "../utils/mermaidValidation";
 
 import { getLastAssistantMessage } from "../utils/chat";
@@ -160,12 +160,14 @@ export const useMermaidRenderer = ({
   // this hook is responsible for keep rendering during streaming
   useEffect(() => {
     if (lastAssistantMessage?.content && lastAssistantMessage?.isGenerating) {
-      throttledRenderMermaid(lastAssistantMessage.content);
+      const cleaned = cleanMermaidMessage(lastAssistantMessage.content);
+      throttledRenderMermaid(cleaned || lastAssistantMessage.content);
     } else if (!lastAssistantMessage?.isGenerating) {
       throttledRenderMermaid.flush();
       resetThrottleState();
       if (lastAssistantMessage?.content) {
-        throttledRenderMermaid(lastAssistantMessage.content);
+        const cleaned = cleanMermaidMessage(lastAssistantMessage.content);
+        throttledRenderMermaid(cleaned || lastAssistantMessage.content);
       }
     }
   }, [
@@ -186,7 +188,8 @@ export const useMermaidRenderer = ({
       return;
     }
 
-    renderMermaid(msg.content);
+    const cleaned = cleanMermaidMessage(msg.content);
+    renderMermaid(cleaned || msg.content);
   }, [chatHistory?.id, renderMermaid, showPreview]);
 
   useEffect(() => {

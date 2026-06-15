@@ -17,6 +17,7 @@ import {
   removeLastAssistantMessage,
   updateAssistantContent,
 } from "../utils/chat";
+import { cleanMermaidMessage } from "../common";
 
 import type { LLMMessage, TTTDDialog } from "../types";
 
@@ -137,11 +138,14 @@ export const useTextGeneration = ({
           ollamaModel,
         });
 
-      setChatHistory((prev) =>
-        updateAssistantContent(prev, {
+      setChatHistory((prev) => {
+        const lastMsg = getLastAssistantMessage(prev);
+        const cleaned = cleanMermaidMessage(lastMsg?.content || "");
+        return updateAssistantContent(prev, {
           isGenerating: false,
-        }),
-      );
+          content: cleaned,
+        });
+      });
 
       if (isFiniteNumber(rateLimit) && isFiniteNumber(rateLimitRemaining)) {
         setRateLimits({ rateLimit, rateLimitRemaining });
@@ -197,8 +201,9 @@ export const useTextGeneration = ({
         return;
       }
 
+      const cleanedResponse = cleanMermaidMessage(generatedResponse ?? "");
       try {
-        await parseMermaidToExcalidraw(generatedResponse ?? "");
+        await parseMermaidToExcalidraw(cleanedResponse);
         trackEvent("ai", "mermaid parse success", "ttd");
       } catch (error: any) {
         trackEvent("ai", "mermaid parse failed", "ttd");

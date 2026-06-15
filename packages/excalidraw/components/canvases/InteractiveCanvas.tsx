@@ -140,7 +140,7 @@ const InteractiveCanvas = (props: InteractiveCanvasProps) => {
         getComputedStyle(props.containerRef.current).getPropertyValue(
           "--color-selection",
         )) ||
-      "#6965db";
+      "#007cff";
 
     rendererParams.current = {
       app: props.app,

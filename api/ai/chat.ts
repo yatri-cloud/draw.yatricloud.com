@@ -11,30 +11,16 @@ export const maxDuration = 60; // 60 seconds is the maximum for Hobby tier
 const MERMAID_SYSTEM_CONTEXT = `You are a Mermaid.js diagram expert. Convert the user's description into a valid Mermaid diagram.
 
 CRITICAL RULES:
-- Output ONLY raw Mermaid syntax. No markdown fences, no explanations.
+- Output ONLY raw Mermaid syntax. No markdown fences (e.g. \`\`\`mermaid), no explanations.
 - Start directly with the diagram keyword (e.g. "flowchart TD").
-- Node labels with special chars MUST be quoted: A["Label (with parens)"]
+- Node labels with ANY special characters (including parentheses, hyphens, brackets, slash, space) MUST be double-quoted. E.g. A["Image Storage (CDN)"] or B["My Label"].
+- Node IDs must be alphanumeric, no spaces, no special characters, e.g. use "ImageStorage" as ID, not "Image-Storage".
 - Node IDs must NEVER match subgraph IDs — use CdnNode not CDN inside a CDN subgraph.
 - Never redeclare a node that's already inside a subgraph.
 - Never draw arrows to/from subgraph names, only to nodes.
 - Subgraph IDs: alphanumeric, no spaces. Label in quotes: subgraph SL["Storage Layer"]`;
 
-export default async function handler(req: Request): Promise<Response> {
-  // CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: cors(),
-    });
-  }
-
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json", ...cors() },
-    });
-  }
-
+export async function POST(req: Request): Promise<Response> {
   const YATRI_AI_BASE = process.env.YATRI_AI_BASE;
   const YATRI_AI_API_KEY = process.env.YATRI_AI_API_KEY;
 
@@ -83,7 +69,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   let finalMessage = message;
   if (context.includes("Mermaid") || context.includes("diagram")) {
-    finalMessage = `${context}\n\nUSER REQUEST: ${message}\n\nCRITICAL: Output ONLY the raw Mermaid code. Do not wrap in markdown code blocks or quotes. Start directly with the diagram keyword (e.g., flowchart TD). No explanations, no conversational text.`;
+    finalMessage = `USER REQUEST: ${message}\n\nCRITICAL: Output ONLY the raw Mermaid code. Do not wrap in markdown code blocks or quotes. Start directly with the diagram keyword (e.g., flowchart TD). No explanations, no conversational text.`;
   }
 
   const upstream = await fetch(`${YATRI_AI_BASE}/api/chat`, {
@@ -121,6 +107,13 @@ export default async function handler(req: Request): Promise<Response> {
       "X-Accel-Buffering": "no",
       ...cors(),
     },
+  });
+}
+
+export async function OPTIONS(req: Request): Promise<Response> {
+  return new Response(null, {
+    status: 204,
+    headers: cors(),
   });
 }
 
