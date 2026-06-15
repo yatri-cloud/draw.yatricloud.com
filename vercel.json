@@ -6,7 +6,7 @@
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://excalidraw.com"
+          "value": "https://draw.yatricloud.com"
         },
         {
           "key": "X-Content-Type-Options",
@@ -31,7 +31,7 @@
         },
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://excalidraw.com"
+          "value": "https://draw.yatricloud.com"
         }
       ]
     },
@@ -47,22 +47,23 @@
           "value": "*"
         }
       ]
-    }
-  ],
-  "redirects": [
-    {
-      "source": "/webex/:match*",
-      "destination": "https://for-webex.excalidraw.com"
     },
     {
-      "source": "/:path*",
-      "has": [
+      "source": "/api/(.*)",
+      "headers": [
         {
-          "type": "host",
-          "value": "vscode.excalidraw.com"
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://draw.yatricloud.com"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type"
         }
-      ],
-      "destination": "https://marketplace.visualstudio.com/items?itemName=pomdtr.excalidraw-editor"
+      ]
     }
   ],
   "outputDirectory": "excalidraw-app/build",

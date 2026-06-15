@@ -17,6 +17,18 @@ export default defineConfig(({ mode }) => {
       port: Number(envVars.VITE_APP_PORT || 3000),
       // open the browser
       open: true,
+      // Proxy /api/ai/* to the local Yatri AI server during development.
+      // In production, the Vercel Edge Function at api/ai/chat.ts handles this.
+      proxy: {
+        "/api/ai": {
+          target: envVars.VITE_YATRI_AI_DEV_PROXY || "http://localhost:3001",
+          changeOrigin: true,
+          secure: false,
+          headers: {
+            "X-API-Key": envVars.VITE_YATRI_AI_DEV_KEY || "",
+          },
+        },
+      },
     },
     // We need to specify the envDir since now there are no
     //more located in parallel with the vite.config.ts file but in parent dir

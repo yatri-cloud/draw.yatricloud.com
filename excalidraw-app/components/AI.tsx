@@ -4,7 +4,6 @@ import {
   getTextFromElements,
   MIME_TYPES,
   TTDDialog,
-  TTDStreamFetch,
 } from "@excalidraw/excalidraw";
 import { getDataURL } from "@excalidraw/excalidraw/data/blob";
 import { safelyParseJSON } from "@excalidraw/common";
@@ -14,27 +13,8 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import { TTDIndexedDBAdapter } from "../data/TTDStorage";
 
-/**
- * Sends a streaming chat request to a local Ollama instance.
- * Ollama's /api/chat endpoint returns NDJSON with one JSON object per line.
- * Each line has: { done: boolean, message: { role, content } }
- */
-async function ollamaStreamFetch({
-  url,
-  model,
-  messages,
-  onChunk,
-  onStreamCreated,
-  signal,
-}: {
-  url: string;
-  model: string;
-  messages: readonly { role: "user" | "assistant"; content: string }[];
-  onChunk?: (chunk: string) => void;
-  onStreamCreated?: () => void;
-  signal?: AbortSignal;
-}) {
-  const SYSTEM_PROMPT = `You are a Mermaid.js diagram expert. Your sole job is to convert the user's natural-language description into a valid Mermaid diagram definition.
+// ─── Mermaid system prompt shared by all providers ───────────────────────────
+const MERMAID_SYSTEM_PROMPT = `You are a Mermaid.js diagram expert. Your sole job is to convert the user's natural-language description into a valid Mermaid diagram definition.
 
 CRITICAL OUTPUT RULES:
 - Output ONLY the raw Mermaid syntax — absolutely no markdown code fences (\`\`\`), no explanation, no comments, no preamble.
@@ -77,17 +57,190 @@ flowchart TD
     Feed --> S3
     S3 --> CdnNode`;
 
+// ─── Yatri AI default provider ───────────────────────────────────────────────
+// Calls /api/ai/chat (Vercel Edge proxy → Yatri AI server).
+// API key is injected server-side — never exposed to the browser.
+// Expects SSE format: "data: {token: ...}\n" or "data: [DONE]\n"
+async function yatriAIStreamFetch({
+  messages,
+  onChunk,
+  onStreamCreated,
+  signal,
+}: {
+  messages: readonly { role: "user" | "assistant"; content: string }[];
+  onChunk?: (chunk: string) => void;
+  onStreamCreated?: () => void;
+  signal?: AbortSignal;
+}) {
+  try {
+    const response = await fetch("/api/ai/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages,
+        stream: true,
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new RequestError({
+        message: errorText || `Yatri AI returned status ${response.status}`,
+        status: response.status,
+      });
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new RequestError({
+        message: "Could not read response body",
+        status: 500,
+      });
+    }
+
+    onStreamCreated?.();
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullResponse = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            continue;
+          }
+
+          // SSE format: "data: ..." lines
+          if (trimmed.startsWith("data: ")) {
+            const raw = trimmed.slice(6);
+            if (raw === "[DONE]") {
+              continue;
+            }
+            try {
+              const parsed = JSON.parse(raw);
+              // Yatri AI SSE: { token: "..." } or { error: "..." }
+              if (parsed.token) {
+                fullResponse += parsed.token;
+                onChunk?.(parsed.token);
+              }
+              if (parsed.error) {
+                throw new RequestError({
+                  message: parsed.error,
+                  status: 500,
+                });
+              }
+              // Also handle the Excalidraw StreamChunk format as fallback
+              if (parsed.type === "content" && parsed.delta) {
+                fullResponse += parsed.delta;
+                onChunk?.(parsed.delta);
+              }
+            } catch (e: any) {
+              if (e instanceof RequestError) {
+                throw e;
+              }
+              // Non-JSON SSE data — treat as raw text token
+              if (raw) {
+                fullResponse += raw;
+                onChunk?.(raw);
+              }
+            }
+          } else {
+            // NDJSON fallback (Ollama-like format from proxy)
+            try {
+              const parsed = JSON.parse(trimmed);
+              const delta: string =
+                parsed?.message?.content ?? parsed?.token ?? "";
+              if (delta) {
+                fullResponse += delta;
+                onChunk?.(delta);
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+    } catch (streamErr: any) {
+      reader.releaseLock();
+      if (streamErr.name === "AbortError") {
+        return {
+          error: new RequestError({ message: "Request aborted", status: 499 }),
+        };
+      }
+      throw streamErr;
+    }
+
+    reader.releaseLock();
+
+    if (!fullResponse) {
+      return {
+        error: new RequestError({
+          message: "AI returned an empty response. Please try again.",
+          status: 500,
+        }),
+      };
+    }
+
+    return {
+      generatedResponse: fullResponse,
+      error: null,
+    };
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      return {
+        error: new RequestError({ message: "Request aborted", status: 499 }),
+      };
+    }
+    if (err instanceof RequestError) {
+      return { error: err };
+    }
+    return {
+      error: new RequestError({
+        message: err.message || "Could not connect to Yatri AI.",
+        status: 500,
+      }),
+    };
+  }
+}
+
+// ─── Local Ollama provider ───────────────────────────────────────────────────
+// Ollama /api/chat returns NDJSON: one JSON object per line.
+async function ollamaStreamFetch({
+  url,
+  model,
+  messages,
+  onChunk,
+  onStreamCreated,
+  signal,
+}: {
+  url: string;
+  model: string;
+  messages: readonly { role: "user" | "assistant"; content: string }[];
+  onChunk?: (chunk: string) => void;
+  onStreamCreated?: () => void;
+  signal?: AbortSignal;
+}) {
   try {
     const response = await fetch(`${url}/api/chat`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
         stream: true,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: MERMAID_SYSTEM_PROMPT },
           ...messages,
         ],
       }),
@@ -124,8 +277,6 @@ flowchart TD
         }
 
         buffer += decoder.decode(value, { stream: true });
-
-        // Ollama streams NDJSON: one JSON object per line
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
 
@@ -192,6 +343,7 @@ flowchart TD
   }
 }
 
+// ─── Exported component ──────────────────────────────────────────────────────
 export const AIComponents = ({
   excalidrawAPI,
 }: {
@@ -216,7 +368,6 @@ export const AIComponents = ({
           });
 
           const dataURL = await getDataURL(blob);
-
           const textFromFrameChildren = getTextFromElements(children);
 
           const response = await fetch(
@@ -251,11 +402,6 @@ export const AIComponents = ({
                 <body style="margin: 0; text-align: center">
                 <div style="display: flex; align-items: center; justify-content: center; flex-direction: column; height: 100vh; padding: 0 60px">
                   <div style="color:red">Too many requests today,</br>please try again tomorrow!</div>
-                  </br>
-                  </br>
-                  <div>You can also try <a href="${
-                    import.meta.env.VITE_APP_PLUS_LP
-                  }/plus?utm_source=excalidraw&utm_medium=app&utm_content=d2c" target="_blank" rel="noopener">Excalidraw+</a> to get more requests.</div>
                 </div>
                 </body>
                 </html>`,
@@ -271,9 +417,7 @@ export const AIComponents = ({
             if (!html) {
               throw new Error("Generation failed (invalid response)");
             }
-            return {
-              html,
-            };
+            return { html };
           } catch (error: any) {
             throw new Error("Generation failed (invalid response)");
           }
@@ -304,19 +448,13 @@ export const AIComponents = ({
             });
           }
 
-          // --- Default cloud provider ---
-          const result = await TTDStreamFetch({
-            url: `${
-              import.meta.env.VITE_APP_AI_BACKEND
-            }/v1/ai/text-to-diagram/chat-streaming`,
+          // --- Default provider: Yatri AI (server-side proxy) ---
+          return yatriAIStreamFetch({
             messages,
             onChunk,
             onStreamCreated,
-            extractRateLimits: true,
             signal,
           });
-
-          return result;
         }}
         persistenceAdapter={TTDIndexedDBAdapter}
       />
