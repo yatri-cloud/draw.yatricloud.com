@@ -81,6 +81,11 @@ export default async function handler(req: Request): Promise<Response> {
     context = MERMAID_SYSTEM_CONTEXT + (historyText ? `\n\nConversation so far:\n${historyText}` : "");
   }
 
+  let finalMessage = message;
+  if (context.includes("Mermaid") || context.includes("diagram")) {
+    finalMessage = `${context}\n\nUSER REQUEST: ${message}\n\nCRITICAL: Output ONLY the raw Mermaid code. Do not wrap in markdown code blocks or quotes. Start directly with the diagram keyword (e.g., flowchart TD). No explanations, no conversational text.`;
+  }
+
   const upstream = await fetch(`${YATRI_AI_BASE}/api/chat`, {
     method: "POST",
     headers: {
@@ -88,7 +93,7 @@ export default async function handler(req: Request): Promise<Response> {
       "X-API-Key": YATRI_AI_API_KEY,
     },
     body: JSON.stringify({
-      message,
+      message: finalMessage,
       context,
       stream: body.stream !== false, // default to streaming
     }),
