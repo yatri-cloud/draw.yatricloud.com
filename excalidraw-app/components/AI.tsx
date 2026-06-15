@@ -370,10 +370,14 @@ export const AIComponents = ({
           const dataURL = await getDataURL(blob);
           const textFromFrameChildren = getTextFromElements(children);
 
+          const backendUrl = import.meta.env.VITE_APP_AI_BACKEND || "";
+          const isProxy = backendUrl.includes("/api/ai");
+          const fetchUrl = isProxy
+            ? `${backendUrl}/diagram-to-code`
+            : `${backendUrl}/v1/ai/diagram-to-code/generate`;
+
           const response = await fetch(
-            `${
-              import.meta.env.VITE_APP_AI_BACKEND
-            }/v1/ai/diagram-to-code/generate`,
+            fetchUrl,
             {
               method: "POST",
               headers: {
