@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => {
           target: envVars.VITE_YATRI_AI_DEV_PROXY || "http://localhost:3001",
           changeOrigin: true,
           secure: false,
+          rewrite: (path) => path.replace(/^\/api\/ai/, "/api"),
           headers: {
             "X-API-Key": envVars.VITE_YATRI_AI_DEV_KEY || "",
           },

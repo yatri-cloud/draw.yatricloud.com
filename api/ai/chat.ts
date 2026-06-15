@@ -81,7 +81,7 @@ export default async function handler(req: Request): Promise<Response> {
     context = MERMAID_SYSTEM_CONTEXT + (historyText ? `\n\nConversation so far:\n${historyText}` : "");
   }
 
-  const upstream = await fetch(`${YATRI_AI_BASE}/api/ai/chat`, {
+  const upstream = await fetch(`${YATRI_AI_BASE}/api/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
