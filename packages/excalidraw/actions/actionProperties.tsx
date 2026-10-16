@@ -199,6 +199,8 @@ export const changeProperty = (
   const selectedElementIds = arrayToMap(
     getSelectedElements(elements, appState, {
       includeBoundTextElement: includeBoundText,
+      // a selected frame styles everything inside it
+      includeElementsInFrames: true,
     }),
   );
 
@@ -250,7 +252,10 @@ export const getFormValue = function <T extends Primitive>(
     const hasSelection = isSomeElementSelected(nonDeletedElements, app.state);
 
     if (hasSelection) {
-      const selectedElements = app.scene.getSelectedElements(app.state);
+      const selectedElements = app.scene.getSelectedElements({
+        selectedElementIds: app.state.selectedElementIds,
+        includeElementsInFrames: true,
+      });
       const targetElements =
         elementPredicate === true
           ? selectedElements
@@ -332,6 +337,7 @@ const changeFontSize = (
   // Update arrow elements after text elements have been updated
   getSelectedElements(elements, appState, {
     includeBoundTextElement: true,
+    includeElementsInFrames: true,
   }).forEach((element) => {
     if (isTextElement(element)) {
       updateBoundElements(element, app.scene);
@@ -624,7 +630,9 @@ export const actionChangeFillStyle = register<ExcalidrawElement["fillStyle"]>({
     };
   },
   PanelComponent: ({ elements, appState, updateData, app }) => {
-    const selectedElements = getSelectedElements(elements, appState);
+    const selectedElements = getSelectedElements(elements, appState, {
+      includeElementsInFrames: true,
+    });
     const selectedFillStyleElements = selectedElements.filter((element) =>
       hasFillStyle(element.type),
     );
@@ -1215,6 +1223,7 @@ export const actionChangeFontFamily = register<{
 
       const selectedTextElements = getSelectedElements(elements, appState, {
         includeBoundTextElement: true,
+        includeElementsInFrames: true,
       }).filter((element) => isTextElement(element));
 
       // skip on hover re-render for more than 200 text elements or for text element with more than 5000 chars combined
@@ -1505,6 +1514,7 @@ export const actionChangeFontFamily = register<{
                   appState,
                   {
                     includeBoundTextElement: true,
+                    includeElementsInFrames: true,
                   },
                 );
 

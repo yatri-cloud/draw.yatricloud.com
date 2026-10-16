@@ -6,6 +6,8 @@ import {
   getColorTargetElement,
   hasBoundTextElement,
   isElbowArrow,
+  isFrameLikeElement,
+  getFrameChildren,
   isImageElement,
   isLinearElement,
   isTextElement,
@@ -92,6 +94,13 @@ export const getShapeActionPredicates = (
   app: AppClassProperties,
 ) => {
   const activeToolType = appState.activeTool.type;
+  const selection = targetElements;
+  // a selected frame offers the style controls of everything inside it
+  targetElements = selection.flatMap((element) =>
+    isFrameLikeElement(element)
+      ? [element, ...getFrameChildren(elementsMap, element.id)]
+      : [element],
+  );
 
   // A property is relevant when it applies to the active tool (so it can be
   // preconfigured before drawing) or to any currently selected element.
@@ -101,18 +110,17 @@ export const getShapeActionPredicates = (
     predicate(activeToolType) ||
     targetElements.some((element) => predicate(element.type));
 
-  const singleSelected = targetElements.length === 1;
+  const singleSelected = selection.length === 1;
 
   // a container + its bound text read as a single logical element (2 selected)
   const isSingleElementBoundContainer =
-    targetElements.length === 2 &&
-    (hasBoundTextElement(targetElements[0]) ||
-      hasBoundTextElement(targetElements[1]));
+    selection.length === 2 &&
+    (hasBoundTextElement(selection[0]) || hasBoundTextElement(selection[1]));
 
   const isEditingTextOrNewElement = Boolean(
     appState.editingTextElement || appState.newElement,
   );
-  const hasSelection = targetElements.length > 0;
+  const hasSelection = selection.length > 0;
 
   return {
     /** some element(s) selected */
@@ -168,7 +176,7 @@ export const getShapeActionPredicates = (
       ),
     align:
       !isSingleElementBoundContainer && alignActionsPredicate(appState, app),
-    distribute: targetElements.length > 2,
+    distribute: selection.length > 2,
 
     // per-element actions
     // NOTE: the full panel treats a bound container as linkable; the compact /
@@ -179,12 +187,12 @@ export const getShapeActionPredicates = (
     cropEditor:
       !appState.croppingElementId &&
       singleSelected &&
-      isImageElement(targetElements[0]),
+      isImageElement(selection[0]),
     lineEditor:
       !appState.selectedLinearElement?.isEditing &&
       singleSelected &&
-      isLinearElement(targetElements[0]) &&
-      !isElbowArrow(targetElements[0]),
+      isLinearElement(selection[0]) &&
+      !isElbowArrow(selection[0]),
   };
 };
 
