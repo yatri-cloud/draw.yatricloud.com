@@ -50,6 +50,12 @@ export const useMermaidRenderer = ({
 
   // Keeping lastAssistantMesssage in ref, so I can access it in useEffect hooks
   const lastAssistantMessageRef = useRef(lastAssistantMessage);
+  // names the diagram's frame when the AI gave no title
+  const lastUserPromptRef = useRef<string | undefined>(undefined);
+  lastUserPromptRef.current = [...chatHistory.messages]
+    .reverse()
+    .find((msg) => msg.type === "user" && typeof msg.content === "string")
+    ?.content as string | undefined;
   useEffect(() => {
     lastAssistantMessageRef.current = lastAssistantMessage;
   }, [lastAssistantMessage]);
@@ -103,6 +109,7 @@ export const useMermaidRenderer = ({
           mermaidDefinition: next,
           theme,
           ...layoutRef.current,
+          prompt: lastUserPromptRef.current,
           // while the AI is still writing, skip the arrangement search so the
           // preview keeps up; the finished diagram gets the full search
           fitArrangement: !lastAssistantMessageRef.current?.isGenerating,

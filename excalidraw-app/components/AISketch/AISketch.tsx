@@ -12,6 +12,7 @@ import { freeInsertPosition } from "@excalidraw/excalidraw/components/TTDDialog/
 import {
   aspectMismatch,
   DEFAULT_FRAME_RATIO,
+  diagramName,
   FRAME_RATIOS,
   frameAspect,
   wrapInAspectFrame,
@@ -115,6 +116,7 @@ export const AISketchDialog = () => {
   const insert = async (
     candidates: { elements: ExcalidrawElement[]; logoIds: string[] }[],
     bundle: LogoBundle | undefined,
+    name: string,
   ) => {
     const aspect = frameAspect(frameRatio);
     const fit = (result: typeof candidates[number]) => {
@@ -130,7 +132,7 @@ export const AISketchDialog = () => {
       ? wrapInAspectFrame(
           best.elements as NonDeletedExcalidrawElement[],
           aspect,
-          FRAME_RATIOS.find((r) => r.value === frameRatio)!.title,
+          name,
         )
       : best.elements;
     const files = bundle ? await logoFiles(best.logoIds, bundle) : null;
@@ -177,7 +179,7 @@ export const AISketchDialog = () => {
         renderArchitecture(spec, await layoutArchitecture(spec, dir), icons),
       ),
     );
-    await insert(candidates, icons.bundle);
+    await insert(candidates, icons.bundle, diagramName(spec.title, text));
   };
 
   const generate = async () => {
@@ -212,7 +214,7 @@ export const AISketchDialog = () => {
             renderSketch(spec, icons, logos, dir),
           )
         : [renderSketch(spec, icons, logos)];
-      await insert(candidates, logos);
+      await insert(candidates, logos, diagramName(spec.title, text));
       setStatus(null);
       setOpen(false);
     } catch (err: any) {

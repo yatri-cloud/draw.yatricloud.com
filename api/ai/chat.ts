@@ -13,6 +13,7 @@ const MERMAID_SYSTEM_CONTEXT = `You are a Mermaid.js diagram expert. Convert the
 CRITICAL RULES:
 - Output ONLY raw Mermaid syntax. No markdown fences (e.g. \`\`\`mermaid), no explanations.
 - Start directly with the diagram keyword (e.g. "flowchart TD").
+- On the line right after the diagram keyword, add a title comment of 2 to 6 words: %% title: Serverless Image Upload
 - Node labels with ANY special characters (including parentheses, hyphens, brackets, slash, space) MUST be double-quoted. E.g. A["Image Storage (CDN)"] or B["My Label"].
 - Node IDs must be alphanumeric, no spaces, no special characters, e.g. use "ImageStorage" as ID, not "Image-Storage".
 - Node IDs must NEVER match subgraph IDs — use CdnNode not CDN inside a CDN subgraph.

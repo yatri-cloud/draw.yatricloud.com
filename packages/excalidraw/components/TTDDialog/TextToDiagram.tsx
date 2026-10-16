@@ -106,6 +106,18 @@ const TextToDiagramContent = ({
     }
   };
 
+  /** the user's request that this answer responds to */
+  const userPromptBefore = (message: TChat.ChatMessage) => {
+    const index = chatHistory.messages.findIndex(
+      (msg) => msg.id === message.id,
+    );
+    const previous = chatHistory.messages
+      .slice(0, Math.max(index, 0))
+      .reverse()
+      .find((msg) => msg.type === "user" && typeof msg.content === "string");
+    return previous?.content as string | undefined;
+  };
+
   const handleInsertMessage = async (message: TChat.ChatMessage) => {
     const mermaidContent = message.content || "";
     if (!mermaidContent.trim() || !mermaidToExcalidrawLib.loaded) {
@@ -128,6 +140,7 @@ const TextToDiagramContent = ({
       theme: app.state.theme,
       direction,
       frameRatio,
+      prompt: userPromptBefore(message),
     });
 
     if (result.success) {

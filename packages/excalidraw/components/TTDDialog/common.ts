@@ -25,8 +25,9 @@ import {
 } from "./beautifyDiagram";
 import {
   aspectMismatch,
-  FRAME_RATIOS,
+  diagramName,
   frameAspect,
+  mermaidTitle,
   wrapInAspectFrame,
 } from "./frame";
 
@@ -314,7 +315,10 @@ export const convertMermaidToExcalidraw = async ({
   direction = "auto",
   frameRatio = "free",
   fitArrangement = true,
+  prompt,
 }: {
+  /** the request that produced the diagram; names the frame when it has no title */
+  prompt?: string;
   /** try several arrangements to best fill the frame (skipped while streaming) */
   fitArrangement?: boolean;
   direction?: DiagramDirection;
@@ -421,7 +425,7 @@ export const convertMermaidToExcalidraw = async ({
         ? wrapInAspectFrame(
             withLogos.elements,
             aspect,
-            FRAME_RATIOS.find((r) => r.value === frameRatio)!.title,
+            diagramName(mermaidTitle(mermaidDefinition), prompt),
           )
         : withLogos.elements,
       files: { ...files, ...logoImages },

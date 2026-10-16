@@ -69,3 +69,40 @@ export const wrapInAspectFrame = (
     frame,
   ];
 };
+
+const MAX_NAME = 60;
+
+/** Title written into a Mermaid definition: `%% title: X` or frontmatter `title: X`. */
+export const mermaidTitle = (definition: string) =>
+  (
+    definition.match(/^\s*%%\s*title\s*:\s*(.+)$/im)?.[1] ??
+    definition.match(/^---\s*$[\s\S]*?^\s*title\s*:\s*(.+)$/m)?.[1]
+  )
+    ?.replace(/^["']|["']$/g, "")
+    .trim() || undefined;
+
+/** Turns a request such as "create a diagram of a serverless API" into "Serverless API". */
+const promptToName = (prompt: string) => {
+  const words = (prompt.trim().split("\n")[0] ?? "")
+    .replace(
+      /^(please\s+)?(create|draw|make|generate|design|build|show|sketch|explain)\s+(me\s+)?/i,
+      "",
+    )
+    .replace(
+      /^(an?|the)?\s*([\w-]+\s+)?(diagram|chart|flowchart|flow|sketch|explainer|architecture)\s+(of|for|showing|about|on)\s+/i,
+      "",
+    )
+    .replace(/^(an?|the)\s+/i, "")
+    .replace(/[.!?]+$/, "")
+    .split(/\s+/)
+    .slice(0, 8)
+    .join(" ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
+/** Name for a generated diagram's frame: its title, else a short form of the prompt. */
+export const diagramName = (title?: string, prompt?: string) =>
+  (title?.trim() || (prompt && promptToName(prompt)) || "Diagram").slice(
+    0,
+    MAX_NAME,
+  );
