@@ -1,0 +1,528 @@
+{
+  "checkout": {
+    "title": "Online Shop Checkout",
+    "direction": "LR",
+    "nodes": [
+      {
+        "id": "customer",
+        "kind": "icon",
+        "icon": "person",
+        "color": "none"
+      },
+      {
+        "id": "cart",
+        "kind": "icon",
+        "icon": "cart",
+        "color": "none"
+      },
+      {
+        "id": "api",
+        "kind": "icon",
+        "icon": "api",
+        "color": "none"
+      },
+      {
+        "id": "card",
+        "kind": "icon",
+        "icon": "credit-card",
+        "color": "none"
+      },
+      {
+        "id": "db",
+        "kind": "icon",
+        "icon": "database",
+        "color": "none"
+      },
+      {
+        "id": "email",
+        "kind": "icon",
+        "icon": "email",
+        "color": "none"
+      }
+    ],
+    "edges": [
+      {
+        "from": "customer",
+        "to": "cart"
+      },
+      {
+        "from": "cart",
+        "to": "api",
+        "label": "sends items"
+      },
+      {
+        "from": "api",
+        "to": "card",
+        "label": "requests payment"
+      },
+      {
+        "from": "card",
+        "to": "api",
+        "label": "processes payment"
+      },
+      {
+        "from": "api",
+        "to": "db",
+        "label": "saves order"
+      },
+      {
+        "from": "db",
+        "to": "email",
+        "label": "triggers email"
+      }
+    ],
+    "footer": "Complete purchase with secure payment"
+  },
+  "microservices": {
+    "title": "Microservices Flow",
+    "direction": "LR",
+    "nodes": [
+      {
+        "id": "web",
+        "kind": "icon",
+        "icon": "phone",
+        "color": "gray"
+      },
+      {
+        "id": "mobile",
+        "kind": "icon",
+        "icon": "laptop",
+        "color": "gray"
+      },
+      {
+        "id": "gateway",
+        "kind": "box",
+        "label": "API Gateway",
+        "color": "violet",
+        "emphasis": true
+      },
+      {
+        "id": "auth",
+        "kind": "box",
+        "label": "Auth",
+        "color": "gray"
+      },
+      {
+        "id": "orders",
+        "kind": "box",
+        "label": "Orders",
+        "color": "green",
+        "emphasis": true
+      },
+      {
+        "id": "payments",
+        "kind": "box",
+        "label": "Payments",
+        "color": "green",
+        "emphasis": true
+      },
+      {
+        "id": "postgres",
+        "kind": "icon",
+        "icon": "database",
+        "color": "gray"
+      },
+      {
+        "id": "redis",
+        "kind": "icon",
+        "icon": "database",
+        "color": "gray"
+      },
+      {
+        "id": "stripe",
+        "kind": "icon",
+        "icon": "credit-card",
+        "color": "gray"
+      }
+    ],
+    "edges": [
+      {
+        "from": "web",
+        "to": "gateway"
+      },
+      {
+        "from": "mobile",
+        "to": "gateway"
+      },
+      {
+        "from": "gateway",
+        "to": "auth"
+      },
+      {
+        "from": "gateway",
+        "to": "orders"
+      },
+      {
+        "from": "gateway",
+        "to": "payments"
+      },
+      {
+        "from": "orders",
+        "to": "postgres"
+      },
+      {
+        "from": "orders",
+        "to": "redis"
+      },
+      {
+        "from": "payments",
+        "to": "stripe"
+      }
+    ],
+    "groups": [
+      {
+        "label": "Clients",
+        "members": ["web", "mobile"]
+      },
+      {
+        "label": "Backend",
+        "members": ["auth", "orders", "payments", "postgres", "redis", "stripe"]
+      }
+    ]
+  },
+  "notion": {
+    "title": "How Notion Copies Text",
+    "direction": "LR",
+    "nodes": [
+      {
+        "id": "user",
+        "kind": "icon",
+        "label": "",
+        "icon": "user",
+        "color": "none",
+        "emphasis": true
+      },
+      {
+        "id": "click",
+        "kind": "icon",
+        "label": "",
+        "icon": "computer mouse",
+        "color": "none",
+        "emphasis": false
+      },
+      {
+        "id": "notion",
+        "kind": "box",
+        "label": "Notion App",
+        "icon": "browser",
+        "color": "none",
+        "emphasis": false
+      },
+      {
+        "id": "clipboard",
+        "kind": "box",
+        "label": "Clipboard",
+        "icon": "clipboard",
+        "color": "green",
+        "emphasis": true
+      }
+    ],
+    "edges": [
+      {
+        "from": "user",
+        "to": "click",
+        "label": "Click Copy",
+        "style": "solid"
+      },
+      {
+        "from": "click",
+        "to": "notion",
+        "label": "Requests Page",
+        "style": "solid"
+      },
+      {
+        "from": "notion",
+        "to": "clipboard",
+        "label": "Writes Plain Text & HTML",
+        "style": "dashed"
+      }
+    ],
+    "footer": "Copies hidden block data safely"
+  },
+  "rea": {
+    "title": "AI Agent Process",
+    "direction": "TB",
+    "nodes": [
+      {
+        "id": "user",
+        "kind": "icon",
+        "icon": "user",
+        "color": "gray"
+      },
+      {
+        "id": "question",
+        "kind": "bubble",
+        "label": "How does it work?",
+        "color": "none"
+      },
+      {
+        "id": "agent",
+        "kind": "icon",
+        "icon": "robot",
+        "color": "blue",
+        "emphasis": true
+      },
+      {
+        "id": "rea",
+        "kind": "icon",
+        "icon": "code",
+        "color": "gray"
+      },
+      {
+        "id": "ghidra",
+        "kind": "icon",
+        "icon": "database",
+        "color": "none"
+      },
+      {
+        "id": "chrome",
+        "kind": "icon",
+        "icon": "browser",
+        "color": "none"
+      },
+      {
+        "id": "reader",
+        "kind": "icon",
+        "icon": "document",
+        "color": "none"
+      },
+      {
+        "id": "result",
+        "kind": "box",
+        "label": "Document",
+        "color": "green",
+        "emphasis": true
+      }
+    ],
+    "edges": [
+      {
+        "from": "user",
+        "to": "question"
+      },
+      {
+        "from": "question",
+        "to": "agent"
+      },
+      {
+        "from": "agent",
+        "to": "rea"
+      },
+      {
+        "from": "rea",
+        "to": "ghidra"
+      },
+      {
+        "from": "rea",
+        "to": "chrome"
+      },
+      {
+        "from": "rea",
+        "to": "reader"
+      },
+      {
+        "from": "rea",
+        "to": "result"
+      }
+    ],
+    "footer": "Reverse engineering tool uses Ghidra and DevTools to find answers"
+  },
+  "stars": {
+    "title": "GitHub Trending Growth",
+    "direction": "TB",
+    "nodes": [
+      {
+        "id": "repo",
+        "kind": "icon",
+        "icon": "rocket",
+        "color": "orange",
+        "emphasis": true
+      },
+      {
+        "id": "trending",
+        "kind": "icon",
+        "icon": "chart",
+        "color": "gray"
+      },
+      {
+        "id": "oct4",
+        "kind": "box",
+        "label": "Oct 4",
+        "color": "none"
+      },
+      {
+        "id": "oct5",
+        "kind": "box",
+        "label": "Oct 5",
+        "color": "none"
+      },
+      {
+        "id": "oct6",
+        "kind": "box",
+        "label": "Oct 6",
+        "color": "none"
+      },
+      {
+        "id": "oct7",
+        "kind": "box",
+        "label": "Oct 7",
+        "color": "none"
+      },
+      {
+        "id": "oct8",
+        "kind": "box",
+        "label": "Oct 8",
+        "color": "none"
+      },
+      {
+        "id": "oct9",
+        "kind": "box",
+        "label": "Oct 9",
+        "color": "none"
+      },
+      {
+        "id": "oct10",
+        "kind": "box",
+        "label": "Oct 10",
+        "color": "none"
+      }
+    ],
+    "edges": [
+      {
+        "from": "repo",
+        "to": "trending",
+        "style": "solid"
+      },
+      {
+        "from": "trending",
+        "to": "oct4",
+        "style": "dashed"
+      },
+      {
+        "from": "trending",
+        "to": "oct5",
+        "style": "dashed"
+      },
+      {
+        "from": "trending",
+        "to": "oct6",
+        "style": "dashed"
+      },
+      {
+        "from": "trending",
+        "to": "oct7",
+        "style": "dashed"
+      },
+      {
+        "from": "trending",
+        "to": "oct8",
+        "style": "dashed"
+      },
+      {
+        "from": "trending",
+        "to": "oct9",
+        "style": "dashed"
+      },
+      {
+        "from": "trending",
+        "to": "oct10",
+        "style": "dashed"
+      }
+    ],
+    "chart": {
+      "kind": "bar",
+      "caption": "GitHub Stars Per Day",
+      "data": [
+        {
+          "label": "Oct 4",
+          "value": 1400,
+          "display": "1.4K"
+        },
+        {
+          "label": "Oct 5",
+          "value": 3600,
+          "display": "3.6K"
+        },
+        {
+          "label": "Oct 6",
+          "value": 3700,
+          "display": "3.7K"
+        },
+        {
+          "label": "Oct 7",
+          "value": 5600,
+          "display": "5.6K"
+        },
+        {
+          "label": "Oct 8",
+          "value": 10800,
+          "display": "10.8K"
+        },
+        {
+          "label": "Oct 9",
+          "value": 19400,
+          "display": "19.4K"
+        },
+        {
+          "label": "Oct 10",
+          "value": 21700,
+          "display": "21.7K"
+        }
+      ],
+      "stat": {
+        "value": "66.8K",
+        "label": "Total Stars"
+      }
+    }
+  },
+  "twofa": {
+    "title": "How 2FA Works",
+    "direction": "TB",
+    "nodes": [
+      {
+        "id": "phone",
+        "kind": "icon",
+        "icon": "phone",
+        "color": "blue",
+        "emphasis": true
+      },
+      {
+        "id": "server",
+        "kind": "icon",
+        "icon": "server",
+        "color": "blue",
+        "emphasis": true
+      },
+      {
+        "id": "secret",
+        "kind": "icon",
+        "icon": "key",
+        "color": "gray"
+      },
+      {
+        "id": "code",
+        "kind": "bubble",
+        "label": "6-digit code",
+        "color": "none"
+      }
+    ],
+    "edges": [
+      {
+        "from": "phone",
+        "to": "code",
+        "label": "Time / Key"
+      },
+      {
+        "from": "server",
+        "to": "code",
+        "label": "Time / Key",
+        "style": "dashed"
+      },
+      {
+        "from": "code",
+        "to": "server",
+        "label": "Compare"
+      }
+    ],
+    "footer": "Both calculate the same 6-digit code"
+  }
+}

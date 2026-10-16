@@ -13,7 +13,13 @@ import {
   insertToEditor,
   saveMermaidDataToStorage,
 } from "./common";
-import { errorAtom, chatHistoryAtom, showPreviewAtom } from "./TTDContext";
+import {
+  errorAtom,
+  chatHistoryAtom,
+  diagramDirectionAtom,
+  frameRatioAtom,
+  showPreviewAtom,
+} from "./TTDContext";
 
 import { useTTDChatStorage } from "./useTTDChatStorage";
 import { useMermaidRenderer } from "./hooks/useMermaidRenderer";
@@ -54,6 +60,8 @@ const TextToDiagramContent = ({
   const [error, setError] = useAtom(errorAtom);
   const [chatHistory, setChatHistory] = useAtom(chatHistoryAtom);
   const showPreview = useAtomValue(showPreviewAtom);
+  const [direction, setDirection] = useAtom(diagramDirectionAtom);
+  const [frameRatio, setFrameRatio] = useAtom(frameRatioAtom);
 
   const { savedChats } = useTTDChatStorage({ persistenceAdapter });
 
@@ -118,6 +126,8 @@ const TextToDiagramContent = ({
       setError,
       mermaidDefinition: mermaidContent,
       theme: app.state.theme,
+      direction,
+      frameRatio,
     });
 
     if (result.success) {
@@ -231,6 +241,10 @@ const TextToDiagramContent = ({
           error={error}
           loaded={mermaidToExcalidrawLib.loaded}
           onInsert={handleInsertToEditor}
+          direction={direction}
+          onDirectionChange={setDirection}
+          frameRatio={frameRatio}
+          onFrameRatioChange={setFrameRatio}
         />
       )}
     </div>

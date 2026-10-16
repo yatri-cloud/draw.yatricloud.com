@@ -14,6 +14,8 @@ import { RequestError } from "@excalidraw/excalidraw/errors";
 import type { StreamChunk } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
+import { AISketchDialog, AISketchTrigger } from "./AISketch/AISketch";
+
 import { TTDIndexedDBAdapter } from "../data/TTDStorage";
 
 // ─── Mermaid system prompt shared by all providers ───────────────────────────
@@ -522,6 +524,9 @@ export const AIComponents = ({
         }}
         persistenceAdapter={TTDIndexedDBAdapter}
       />
+
+      <AISketchTrigger />
+      <AISketchDialog />
     </>
   );
 };

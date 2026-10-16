@@ -18,7 +18,15 @@ CRITICAL RULES:
 - Node IDs must NEVER match subgraph IDs — use CdnNode not CDN inside a CDN subgraph.
 - Never redeclare a node that's already inside a subgraph.
 - Never draw arrows to/from subgraph names, only to nodes.
-- Subgraph IDs: alphanumeric, no spaces. Label in quotes: subgraph SL["Storage Layer"]`;
+- Subgraph IDs: alphanumeric, no spaces. Label in quotes: subgraph SL["Storage Layer"]
+
+STYLE:
+- Group related nodes into 2 to 5 subgraphs (for example clients, services, data, external) so the diagram can be colour-coded. Skip subgraphs only for very small diagrams.
+- When the user mentions specific products or cloud services, use their real names in the node labels (e.g. "AWS Lambda", "Amazon S3", "PostgreSQL", "Redis", "Stripe", "Docker", "Kubernetes") so official logos can be shown.
+- Keep node labels short: 1 to 4 words. Put detail on edge labels, also short (1 to 3 words).
+- Draw at most one edge between any two nodes. Do not add a separate "response" or "return" edge back to the caller; label the single edge instead (e.g. "upload / URL").
+- Prefer flowchart LR when the diagram has more than 3 levels, so it spreads across the page instead of becoming a tall column.
+- Do not add style, classDef or linkStyle lines; colours are applied automatically.`;
 
 export async function POST(req: Request): Promise<Response> {
   const YATRI_AI_BASE = process.env.YATRI_AI_BASE;
@@ -64,7 +72,9 @@ export async function POST(req: Request): Promise<Response> {
       .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
       .join("\n\n");
 
-    context = MERMAID_SYSTEM_CONTEXT + (historyText ? `\n\nConversation so far:\n${historyText}` : "");
+    context =
+      MERMAID_SYSTEM_CONTEXT +
+      (historyText ? `\n\nConversation so far:\n${historyText}` : "");
   }
 
   let finalMessage = message;
@@ -89,13 +99,10 @@ export async function POST(req: Request): Promise<Response> {
 
   if (!upstream.ok) {
     const text = await upstream.text().catch(() => "upstream error");
-    return new Response(
-      JSON.stringify({ error: text }),
-      {
-        status: upstream.status,
-        headers: { "Content-Type": "application/json", ...cors() },
-      },
-    );
+    return new Response(JSON.stringify({ error: text }), {
+      status: upstream.status,
+      headers: { "Content-Type": "application/json", ...cors() },
+    });
   }
 
   // Pass the stream straight through

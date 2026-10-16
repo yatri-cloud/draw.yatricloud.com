@@ -2,9 +2,15 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import type { NonDeletedExcalidrawElement } from "@excalidraw/element/types";
 
-import { useAtom } from "../../../editor-jotai";
+import { useAtom, useAtomValue } from "../../../editor-jotai";
 
-import { chatHistoryAtom, errorAtom, showPreviewAtom } from "../TTDContext";
+import {
+  chatHistoryAtom,
+  diagramDirectionAtom,
+  errorAtom,
+  frameRatioAtom,
+  showPreviewAtom,
+} from "../TTDContext";
 import { convertMermaidToExcalidraw, cleanMermaidMessage } from "../common";
 import { isValidMermaidSyntax } from "../utils/mermaidValidation";
 
@@ -31,6 +37,8 @@ export const useMermaidRenderer = ({
 }: UseMermaidRendererProps) => {
   const [chatHistory] = useAtom(chatHistoryAtom);
   const [, setError] = useAtom(errorAtom);
+  const direction = useAtomValue(diagramDirectionAtom);
+  const frameRatio = useAtomValue(frameRatioAtom);
 
   const [showPreview, setShowPreview] = useAtom(showPreviewAtom);
   const isRenderingRef = useRef(false);
@@ -61,6 +69,12 @@ export const useMermaidRenderer = ({
 
   const { theme } = useUIAppState();
 
+  // Latest layout choice, read when a render starts, so a render queued while
+  // another one runs uses the newest Layout and Frame settings.
+  const layoutRef = useRef({ direction, frameRatio });
+  layoutRef.current = { direction, frameRatio };
+  const queuedDefinitionRef = useRef<string | null>(null);
+
   const renderMermaid = useCallback(
     async (mermaidDefinition: string): Promise<boolean> => {
       if (!mermaidDefinition.trim() || !mermaidToExcalidrawLib.loaded) {
@@ -68,32 +82,45 @@ export const useMermaidRenderer = ({
       }
 
       if (isRenderingRef.current) {
+        // run again once the current render finishes instead of dropping it
+        queuedDefinitionRef.current = mermaidDefinition;
         return false;
       }
 
       isRenderingRef.current = true;
+      let next: string | null = mermaidDefinition;
+      let success = false;
 
-      const renderStartTime = performance.now();
+      while (next) {
+        queuedDefinitionRef.current = null;
+        const renderStartTime = performance.now();
 
-      const result = await convertMermaidToExcalidraw({
-        canvasRef,
-        data,
-        mermaidToExcalidrawLib,
-        setError,
-        mermaidDefinition,
-        theme,
-      });
+        const result = await convertMermaidToExcalidraw({
+          canvasRef,
+          data,
+          mermaidToExcalidrawLib,
+          setError,
+          mermaidDefinition: next,
+          theme,
+          ...layoutRef.current,
+          // while the AI is still writing, skip the arrangement search so the
+          // preview keeps up; the finished diagram gets the full search
+          fitArrangement: !lastAssistantMessageRef.current?.isGenerating,
+        });
 
-      const renderDuration = performance.now() - renderStartTime;
+        const renderDuration = performance.now() - renderStartTime;
 
-      if (renderDuration < RENDER_SPEED_THRESHOLD) {
-        currentThrottleDelayRef.current = FAST_THROTTLE_DELAY;
-      } else {
-        currentThrottleDelayRef.current = SLOW_THROTTLE_DELAY;
+        if (renderDuration < RENDER_SPEED_THRESHOLD) {
+          currentThrottleDelayRef.current = FAST_THROTTLE_DELAY;
+        } else {
+          currentThrottleDelayRef.current = SLOW_THROTTLE_DELAY;
+        }
+        success = result.success;
+        next = queuedDefinitionRef.current;
       }
 
       isRenderingRef.current = false;
-      return result.success;
+      return success;
     },
     [canvasRef, mermaidToExcalidrawLib, setError, theme],
   );
@@ -176,6 +203,15 @@ export const useMermaidRenderer = ({
     lastAssistantMessage?.isGenerating,
     lastAssistantMessage?.content,
   ]);
+
+  // re-render the finished diagram when the layout direction changes
+  useEffect(() => {
+    const msg = lastAssistantMessageRef.current;
+    if (!msg?.content || msg.error || msg.isGenerating) {
+      return;
+    }
+    renderMermaid(cleanMermaidMessage(msg.content) || msg.content);
+  }, [direction, frameRatio, renderMermaid]);
 
   // render the last message if the user navigates between the existing chats
   useEffect(() => {

@@ -37,7 +37,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadFromBlob } from "@excalidraw/excalidraw/data/blob";
 import { t } from "@excalidraw/excalidraw/i18n";
 
-import { usersIcon, share } from "@excalidraw/excalidraw/components/icons";
+import {
+  usersIcon,
+  share,
+  MagicIcon,
+} from "@excalidraw/excalidraw/components/icons";
 import { isElementLink } from "@excalidraw/element";
 import {
   bumpElementVersions,
@@ -129,6 +133,7 @@ import DebugCanvas, {
 } from "./components/DebugCanvas";
 import { useSimulatedCollaborators } from "./debugCollaborators";
 import { AIComponents } from "./components/AI";
+import { aiSketchOpenAtom } from "./components/AISketch/AISketch";
 import { ExcalidrawPlusIframeExport } from "./ExcalidrawPlusIframeExport";
 
 import "./index.scss";
@@ -392,6 +397,7 @@ const ExcalidrawWrapper = () => {
   }, []);
 
   const [, setShareDialogState] = useAtom(shareDialogStateAtom);
+  const [, setAISketchOpen] = useAtom(aiSketchOpenAtom);
   const [collabAPI] = useAtom(collabAPIAtom);
   const [isCollaborating] = useAtomWithInitialValue(isCollaboratingAtom, () => {
     return isCollaborationLink(window.location.href);
@@ -1011,6 +1017,23 @@ const ExcalidrawWrapper = () => {
 
         <CommandPalette
           customCommandPaletteItems={[
+            {
+              label: "AI Sketch",
+              category: DEFAULT_CATEGORIES.tools,
+              keywords: [
+                "ai",
+                "sketch",
+                "generate",
+                "diagram",
+                "explainer",
+                "illustration",
+                "chart",
+              ],
+              icon: MagicIcon,
+              perform: () => {
+                setAISketchOpen(true);
+              },
+            },
             {
               label: t("labels.liveCollaboration"),
               category: DEFAULT_CATEGORIES.app,

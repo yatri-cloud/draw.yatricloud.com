@@ -27,3 +27,6 @@ dev-dist
 html
 meta*.json
 .claude
+
+# Official vendor icon packages (input for scripts/build-cloud-icons.mjs); re-download from the links in that script
+icons/

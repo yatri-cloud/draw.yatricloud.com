@@ -766,3 +766,49 @@ $fullScreenModalBreakpoint: 600px;
     align-items: center;
   }
 }
+
+.excalidraw {
+  .ttd-dialog-direction {
+    display: inline-flex;
+    margin-left: auto;
+    padding: 2px;
+    gap: 2px;
+    border: 1px solid var(--default-border-color);
+    border-radius: var(--border-radius-lg);
+    background: var(--island-bg-color);
+
+    &__option {
+      padding: 0.25rem 0.75rem;
+      border: none;
+      border-radius: var(--border-radius-md);
+      background: transparent;
+      color: var(--text-primary-color);
+      font-size: 0.8125rem;
+      cursor: pointer;
+
+      &:hover {
+        background: var(--button-hover-bg);
+      }
+
+      &--active,
+      &--active:hover {
+        background: var(--color-primary);
+        color: var(--color-surface-lowest, #fff);
+      }
+    }
+  }
+}
+
+.excalidraw {
+  .ttd-dialog-layout-options {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-left: auto;
+
+    .ttd-dialog-direction {
+      margin-left: 0;
+    }
+  }
+}

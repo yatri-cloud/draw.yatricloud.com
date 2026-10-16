@@ -1,5 +1,6 @@
 import path from "path";
 import { defineConfig, loadEnv } from "vite";
+import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import svgrPlugin from "vite-plugin-svgr";
 import { ViteEjsPlugin } from "vite-plugin-ejs";
@@ -8,6 +9,62 @@ import checker from "vite-plugin-checker";
 import { createHtmlPlugin } from "vite-plugin-html";
 import Sitemap from "vite-plugin-sitemap";
 import { woff2BrowserPlugin } from "../scripts/woff2/woff2-vite-plugins";
+
+// Runs the Vercel functions in ../api/ai locally so `yarn start` matches production:
+// /api/ai/chat goes through api/ai/chat.ts (which adds the Mermaid rules) and then to
+// the Yatri AI gateway at VITE_YATRI_AI_DEV_PROXY with VITE_YATRI_AI_DEV_KEY.
+function yatriApiDevPlugin(envVars: Record<string, string>): Plugin {
+  const routes: Record<string, string> = {
+    "/api/ai/chat": path.resolve(__dirname, "../api/ai/chat.ts"),
+    "/api/ai/sketch": path.resolve(__dirname, "../api/ai/sketch.ts"),
+    "/api/ai/diagram-to-code": path.resolve(
+      __dirname,
+      "../api/ai/diagram-to-code.ts",
+    ),
+  };
+  return {
+    name: "yatri-api-dev",
+    apply: "serve",
+    configureServer(server) {
+      process.env.YATRI_AI_BASE ||= envVars.VITE_YATRI_AI_DEV_PROXY;
+      process.env.YATRI_AI_API_KEY ||= envVars.VITE_YATRI_AI_DEV_KEY;
+      server.middlewares.use(async (req, res, next) => {
+        const file = routes[(req.url || "").split("?")[0]];
+        if (!file || !req.method) {
+          return next();
+        }
+        try {
+          const mod = await server.ssrLoadModule(file);
+          const handler = mod[req.method];
+          if (typeof handler !== "function") {
+            return next();
+          }
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) {
+            chunks.push(chunk as Buffer);
+          }
+          const response: Response = await handler(
+            new Request(`http://localhost${req.url}`, {
+              method: req.method,
+              headers: req.headers as Record<string, string>,
+              body: chunks.length ? Buffer.concat(chunks) : undefined,
+            }),
+          );
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => res.setHeader(key, value));
+          if (response.body) {
+            for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+              res.write(chunk);
+            }
+          }
+          res.end();
+        } catch (err) {
+          next(err);
+        }
+      });
+    },
+  };
+}
 export default defineConfig(({ mode }) => {
   // To load .env variables
   const envVars = loadEnv(mode, `../`);
@@ -17,8 +74,8 @@ export default defineConfig(({ mode }) => {
       port: Number(envVars.VITE_APP_PORT || 3000),
       // open the browser
       open: true,
-      // Proxy /api/ai/* to the local Yatri AI server during development.
-      // In production, the Vercel Edge Function at api/ai/chat.ts handles this.
+      // /api/ai/chat and /api/ai/diagram-to-code run locally via yatriApiDevPlugin.
+      // Any other /api/ai/* path is proxied to the Yatri AI server.
       proxy: {
         "/api/ai": {
           target: envVars.VITE_YATRI_AI_DEV_PROXY || "http://localhost:3001",
@@ -145,6 +202,7 @@ export default defineConfig(({ mode }) => {
       assetsInlineLimit: 0,
     },
     plugins: [
+      yatriApiDevPlugin(envVars),
       Sitemap({
         hostname: "https://excalidraw.com",
         outDir: "build",
