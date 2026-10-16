@@ -134,6 +134,7 @@ import DebugCanvas, {
 import { useSimulatedCollaborators } from "./debugCollaborators";
 import { AIComponents } from "./components/AI";
 import { aiSketchOpenAtom } from "./components/AISketch/AISketch";
+import { FlowAnimation } from "./components/FlowAnimation/FlowAnimation";
 import { ExcalidrawPlusIframeExport } from "./ExcalidrawPlusIframeExport";
 
 import "./index.scss";
@@ -967,6 +968,7 @@ const ExcalidrawWrapper = () => {
         </OverwriteConfirmDialog>
         <AppFooter onChange={() => excalidrawAPI?.refresh()} />
         {excalidrawAPI && <AIComponents excalidrawAPI={excalidrawAPI} />}
+        {excalidrawAPI && <FlowAnimation excalidrawAPI={excalidrawAPI} />}
 
         <TTDDialogTrigger />
         {isCollaborating && isOffline && (
