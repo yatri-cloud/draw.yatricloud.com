@@ -20,7 +20,7 @@ const PAUSE = 0.8;
 /** unbound arrows count as consecutive when one ends this close to where the next starts */
 const CHAIN_DISTANCE = 220;
 
-type FlowPath = { id: string; d: string; rank: number };
+type FlowPath = { id: string; d: string; rank: number; color: string };
 type View = Pick<
   AppState,
   "scrollX" | "scrollY" | "offsetLeft" | "offsetTop" | "width" | "height"
@@ -85,19 +85,19 @@ const toPath = (arrow: ExcalidrawArrowElement) =>
     .join(" ");
 
 const PlayIcon = (
-  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+  <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
     <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" />
   </svg>
 );
 const StopIcon = (
-  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+  <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
     <rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor" />
   </svg>
 );
 
 /**
- * "Animate flow" button plus an overlay that sends glowing dots along the
- * diagram's arrows in flow order. Purely visual: the drawing is not changed.
+ * "Animate flow" button plus a light overlay: dashes flow along each arrow and a
+ * small dot travels them in flow order. Purely visual: the drawing is not changed.
  * With arrows selected, only those animate.
  */
 export const FlowAnimation = ({
@@ -145,6 +145,7 @@ export const FlowAnimation = ({
           id: arrow.id,
           d: toPath(arrow),
           rank: ranks[i],
+          color: arrow.strokeColor,
         })),
       );
     };
@@ -194,19 +195,10 @@ export const FlowAnimation = ({
           }}
           aria-hidden="true"
         >
-          <defs>
-            <filter id="flow-glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
           <g
             transform={`scale(${view.zoom}) translate(${view.scrollX} ${view.scrollY})`}
           >
-            {paths.map(({ id, d, rank }) => {
+            {paths.map(({ id, d, rank, color }) => {
               const start = (rank * STEP) / cycle;
               const end = (rank * STEP + TRAVEL) / cycle;
               const fade = Math.min(end + 0.04, 1);
@@ -215,26 +207,13 @@ export const FlowAnimation = ({
                   <path
                     className="FlowAnimation__trail"
                     d={d}
+                    stroke={color}
                     vectorEffect="non-scaling-stroke"
                   />
-                  <path
-                    className="FlowAnimation__active"
-                    d={d}
-                    vectorEffect="non-scaling-stroke"
-                    opacity="0"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0;0;1;1;0;0"
-                      keyTimes={`0;${start};${start};${end};${fade};1`}
-                      dur={`${cycle}s`}
-                      repeatCount="indefinite"
-                    />
-                  </path>
                   <circle
                     className="FlowAnimation__dot"
-                    r={6 / view.zoom}
-                    filter="url(#flow-glow)"
+                    r={3.5 / view.zoom}
+                    fill={color}
                     opacity="0"
                   >
                     <animateMotion

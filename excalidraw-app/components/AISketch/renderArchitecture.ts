@@ -268,7 +268,7 @@ export const buildArchitectureIcons = (
 
 const INK = "#232f3e";
 const EDGE = "#545b64";
-const FONT = FONT_FAMILY.Nunito;
+const FONT = FONT_FAMILY.Excalifont;
 const ICON = 56;
 const NODE_W = 140;
 const NODE_H = ICON + 52;
@@ -328,7 +328,7 @@ const GROUP_STYLE: Record<GroupType, GroupStyle> = {
 };
 
 const textWidth = (text: string, size: number) =>
-  Math.max(...text.split("\n").map((l) => l.length)) * size * 0.58;
+  Math.max(...text.split("\n").map((l) => l.length)) * size * 0.66;
 
 const wrap = (text: string, width: number) => {
   const lines: string[] = [];
