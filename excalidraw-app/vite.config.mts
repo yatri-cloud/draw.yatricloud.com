@@ -17,6 +17,10 @@ function yatriApiDevPlugin(envVars: Record<string, string>): Plugin {
   const routes: Record<string, string> = {
     "/api/ai/chat": path.resolve(__dirname, "../api/ai/chat.ts"),
     "/api/ai/sketch": path.resolve(__dirname, "../api/ai/sketch.ts"),
+    "/api/ai/architecture": path.resolve(
+      __dirname,
+      "../api/ai/architecture.ts",
+    ),
     "/api/ai/diagram-to-code": path.resolve(
       __dirname,
       "../api/ai/diagram-to-code.ts",

@@ -1031,7 +1031,25 @@ const ExcalidrawWrapper = () => {
               ],
               icon: MagicIcon,
               perform: () => {
-                setAISketchOpen(true);
+                setAISketchOpen("sketch");
+              },
+            },
+            {
+              label: "AI Architecture",
+              category: DEFAULT_CATEGORIES.tools,
+              keywords: [
+                "ai",
+                "architecture",
+                "cloud",
+                "aws",
+                "azure",
+                "gcp",
+                "infrastructure",
+                "diagram",
+              ],
+              icon: MagicIcon,
+              perform: () => {
+                setAISketchOpen("architecture");
               },
             },
             {

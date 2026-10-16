@@ -1,0 +1,574 @@
+{
+ "multiRegion": {
+  "title": "AWS Multi-Region Active-Active",
+  "direction": "LR",
+  "groups": [
+   {
+    "id": "cloud",
+    "type": "cloud",
+    "label": "AWS Cloud"
+   },
+   {
+    "id": "region_us_east_1",
+    "type": "region",
+    "label": "us-east-1",
+    "parent": "cloud"
+   },
+   {
+    "id": "region_us_west_2",
+    "type": "region",
+    "label": "us-west-2",
+    "parent": "cloud"
+   },
+   {
+    "id": "vpc_us_east_1",
+    "type": "vpc",
+    "label": "VPC us-east-1",
+    "parent": "region_us_east_1"
+   },
+   {
+    "id": "vpc_us_west_2",
+    "type": "vpc",
+    "label": "VPC us-west-2",
+    "parent": "region_us_west_2"
+   },
+   {
+    "id": "subnet_public_us_east_1",
+    "type": "public_subnet",
+    "label": "Public Subnet us-east-1",
+    "parent": "vpc_us_east_1"
+   },
+   {
+    "id": "subnet_private_us_east_1",
+    "type": "private_subnet",
+    "label": "Private Subnet us-east-1",
+    "parent": "vpc_us_east_1"
+   },
+   {
+    "id": "subnet_public_us_west_2",
+    "type": "public_subnet",
+    "label": "Public Subnet us-west-2",
+    "parent": "vpc_us_west_2"
+   },
+   {
+    "id": "subnet_private_us_west_2",
+    "type": "private_subnet",
+    "label": "Private Subnet us-west-2",
+    "parent": "vpc_us_west_2"
+   }
+  ],
+  "nodes": [
+   {
+    "id": "route53",
+    "service": "Amazon Route 53",
+    "group": "cloud"
+   },
+   {
+    "id": "cloudfront",
+    "service": "Amazon CloudFront",
+    "group": "cloud"
+   },
+   {
+    "id": "user",
+    "service": "Users",
+    "group": "cloud"
+   },
+   {
+    "id": "alb_us_east_1",
+    "service": "Application Load Balancer",
+    "group": "subnet_public_us_east_1"
+   },
+   {
+    "id": "ecs_cluster_us_east_1",
+    "service": "Amazon ECS",
+    "group": "subnet_private_us_east_1"
+   },
+   {
+    "id": "alb_us_west_2",
+    "service": "Application Load Balancer",
+    "group": "subnet_public_us_west_2"
+   },
+   {
+    "id": "ecs_cluster_us_west_2",
+    "service": "Amazon ECS",
+    "group": "subnet_private_us_west_2"
+   },
+   {
+    "id": "s3_bucket_us_east_1",
+    "service": "Amazon S3",
+    "group": "vpc_us_east_1"
+   },
+   {
+    "id": "s3_bucket_us_west_2",
+    "service": "Amazon S3",
+    "group": "vpc_us_west_2"
+   },
+   {
+    "id": "s3_multi_region_access_point",
+    "service": "S3 Multi-Region Access Point",
+    "group": "cloud"
+   },
+   {
+    "id": "ecr_repository_us_east_1",
+    "service": "Amazon ECR",
+    "group": "vpc_us_east_1"
+   },
+   {
+    "id": "ecr_repository_us_west_2",
+    "service": "Amazon ECR",
+    "group": "vpc_us_west_2"
+   },
+   {
+    "id": "elasticache_redis_us_east_1",
+    "service": "Amazon ElastiCache for Redis",
+    "group": "subnet_private_us_east_1"
+   },
+   {
+    "id": "elasticache_redis_us_west_2",
+    "service": "Amazon ElastiCache for Redis",
+    "group": "subnet_private_us_west_2"
+   },
+   {
+    "id": "secrets_manager_us_east_1",
+    "service": "AWS Secrets Manager",
+    "group": "vpc_us_east_1"
+   },
+   {
+    "id": "secrets_manager_us_west_2",
+    "service": "AWS Secrets Manager",
+    "group": "vpc_us_west_2"
+   },
+   {
+    "id": "dynamodb_global_table",
+    "service": "Amazon DynamoDB Global Tables",
+    "group": "cloud"
+   },
+   {
+    "id": "transit_gateway",
+    "service": "AWS Transit Gateway",
+    "group": "cloud"
+   }
+  ],
+  "edges": [
+   {
+    "from": "user",
+    "to": "route53",
+    "label": "DNS",
+    "style": "solid"
+   },
+   {
+    "from": "route53",
+    "to": "cloudfront",
+    "label": "CDN",
+    "style": "solid"
+   },
+   {
+    "from": "cloudfront",
+    "to": "alb_us_east_1",
+    "label": "Traffic",
+    "style": "solid"
+   },
+   {
+    "from": "cloudfront",
+    "to": "alb_us_west_2",
+    "label": "Traffic",
+    "style": "solid"
+   },
+   {
+    "from": "alb_us_east_1",
+    "to": "ecs_cluster_us_east_1",
+    "label": "HTTP",
+    "style": "solid"
+   },
+   {
+    "from": "alb_us_west_2",
+    "to": "ecs_cluster_us_west_2",
+    "label": "HTTP",
+    "style": "solid"
+   },
+   {
+    "from": "ecs_cluster_us_east_1",
+    "to": "elasticache_redis_us_east_1",
+    "label": "Read/Write",
+    "style": "solid"
+   },
+   {
+    "from": "ecs_cluster_us_west_2",
+    "to": "elasticache_redis_us_west_2",
+    "label": "Read/Write",
+    "style": "solid"
+   },
+   {
+    "from": "ecs_cluster_us_east_1",
+    "to": "s3_bucket_us_east_1",
+    "label": "Upload",
+    "style": "solid"
+   },
+   {
+    "from": "ecs_cluster_us_west_2",
+    "to": "s3_bucket_us_west_2",
+    "label": "Upload",
+    "style": "solid"
+   },
+   {
+    "from": "s3_bucket_us_east_1",
+    "to": "s3_multi_region_access_point",
+    "label": "Replication",
+    "style": "dashed"
+   },
+   {
+    "from": "s3_bucket_us_west_2",
+    "to": "s3_multi_region_access_point",
+    "label": "Replication",
+    "style": "dashed"
+   },
+   {
+    "from": "ecs_cluster_us_east_1",
+    "to": "ecr_repository_us_east_1",
+    "label": "Push",
+    "style": "solid"
+   },
+   {
+    "from": "ecs_cluster_us_west_2",
+    "to": "ecr_repository_us_west_2",
+    "label": "Push",
+    "style": "solid"
+   },
+   {
+    "from": "elasticache_redis_us_east_1",
+    "to": "elasticache_redis_us_west_2",
+    "label": "Global Replication",
+    "style": "dashed"
+   },
+   {
+    "from": "secrets_manager_us_east_1",
+    "to": "secrets_manager_us_west_2",
+    "label": "Replication",
+    "style": "dashed"
+   },
+   {
+    "from": "ecs_cluster_us_east_1",
+    "to": "dynamodb_global_table",
+    "label": "DynamoDB",
+    "style": "solid"
+   },
+   {
+    "from": "ecs_cluster_us_west_2",
+    "to": "dynamodb_global_table",
+    "label": "DynamoDB",
+    "style": "solid"
+   },
+   {
+    "from": "transit_gateway",
+    "to": "alb_us_east_1",
+    "label": "Peering",
+    "style": "dashed"
+   },
+   {
+    "from": "transit_gateway",
+    "to": "alb_us_west_2",
+    "label": "Peering",
+    "style": "dashed"
+   }
+  ]
+ },
+ "threeTier": {
+  "title": "AWS Three-Tier Web App",
+  "direction": "LR",
+  "groups": [
+   {
+    "id": "cloud",
+    "type": "cloud",
+    "label": "AWS Cloud"
+   },
+   {
+    "id": "region",
+    "type": "region",
+    "label": "us-east-1",
+    "parent": "cloud"
+   },
+   {
+    "id": "vpc",
+    "type": "vpc",
+    "label": "VPC 10.0.0.0/16",
+    "parent": "region"
+   },
+   {
+    "id": "az1",
+    "type": "az",
+    "label": "Availability Zone 1",
+    "parent": "vpc"
+   },
+   {
+    "id": "az2",
+    "type": "az",
+    "label": "Availability Zone 2",
+    "parent": "vpc"
+   },
+   {
+    "id": "public_subnet",
+    "type": "public_subnet",
+    "label": "Public Subnet",
+    "parent": "az1"
+   },
+   {
+    "id": "private_subnet",
+    "type": "private_subnet",
+    "label": "Private Subnet",
+    "parent": "az1"
+   },
+   {
+    "id": "public_subnet_2",
+    "type": "public_subnet",
+    "label": "Public Subnet",
+    "parent": "az2"
+   },
+   {
+    "id": "private_subnet_2",
+    "type": "private_subnet",
+    "label": "Private Subnet",
+    "parent": "az2"
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "service": "Users",
+    "group": "cloud"
+   },
+   {
+    "id": "cloudfront",
+    "service": "Amazon CloudFront",
+    "group": "cloud"
+   },
+   {
+    "id": "route53",
+    "service": "Amazon Route 53",
+    "group": "cloud"
+   },
+   {
+    "id": "alb",
+    "service": "Application Load Balancer",
+    "group": "public_subnet"
+   },
+   {
+    "id": "alb_2",
+    "service": "Application Load Balancer",
+    "group": "public_subnet_2"
+   },
+   {
+    "id": "ec2",
+    "service": "Amazon EC2",
+    "group": "private_subnet"
+   },
+   {
+    "id": "ec2_2",
+    "service": "Amazon EC2",
+    "group": "private_subnet_2"
+   },
+   {
+    "id": "ec2_3",
+    "service": "Amazon EC2",
+    "group": "private_subnet_2"
+   },
+   {
+    "id": "rds_primary",
+    "service": "Amazon RDS",
+    "group": "private_subnet"
+   },
+   {
+    "id": "rds_standby",
+    "service": "Amazon RDS",
+    "group": "private_subnet"
+   }
+  ],
+  "edges": [
+   {
+    "from": "users",
+    "to": "cloudfront",
+    "label": "HTTPS",
+    "style": "solid"
+   },
+   {
+    "from": "cloudfront",
+    "to": "route53",
+    "label": "DNS",
+    "style": "solid"
+   },
+   {
+    "from": "route53",
+    "to": "alb",
+    "label": "DNS",
+    "style": "solid"
+   },
+   {
+    "from": "route53",
+    "to": "alb_2",
+    "label": "DNS",
+    "style": "solid"
+   },
+   {
+    "from": "alb",
+    "to": "ec2",
+    "label": "HTTP",
+    "style": "solid"
+   },
+   {
+    "from": "alb_2",
+    "to": "ec2_2",
+    "label": "HTTP",
+    "style": "solid"
+   },
+   {
+    "from": "alb_2",
+    "to": "ec2_3",
+    "label": "HTTP",
+    "style": "solid"
+   },
+   {
+    "from": "ec2",
+    "to": "rds_primary",
+    "label": "SQL",
+    "style": "solid"
+   },
+   {
+    "from": "ec2_2",
+    "to": "rds_primary",
+    "label": "SQL",
+    "style": "solid"
+   },
+   {
+    "from": "ec2_3",
+    "to": "rds_primary",
+    "label": "SQL",
+    "style": "solid"
+   },
+   {
+    "from": "rds_primary",
+    "to": "rds_standby",
+    "label": "Replication",
+    "style": "dashed",
+    "bidirectional": true
+   }
+  ]
+ },
+ "azureServerless": {
+  "title": "Azure Serverless",
+  "direction": "LR",
+  "groups": [
+   {
+    "id": "azure_cloud",
+    "type": "cloud",
+    "label": "Azure Cloud"
+   },
+   {
+    "id": "azure_region",
+    "type": "region",
+    "label": "East US",
+    "parent": "azure_cloud"
+   },
+   {
+    "id": "azure_vpc",
+    "type": "vpc",
+    "label": "VPC 10.0.0.0/16",
+    "parent": "azure_region"
+   },
+   {
+    "id": "azure_az",
+    "type": "az",
+    "label": "Availability Zone 1",
+    "parent": "azure_vpc"
+   },
+   {
+    "id": "azure_subnet",
+    "type": "private_subnet",
+    "label": "Private Subnet",
+    "parent": "azure_az"
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "service": "Users",
+    "group": "azure_cloud"
+   },
+   {
+    "id": "azure_front_door",
+    "service": "Azure Front Door",
+    "group": "azure_cloud"
+   },
+   {
+    "id": "azure_functions",
+    "service": "Azure Functions",
+    "group": "azure_region"
+   },
+   {
+    "id": "cosmos_db",
+    "service": "Cosmos DB",
+    "group": "azure_region"
+   },
+   {
+    "id": "blob_storage",
+    "service": "Blob Storage",
+    "group": "azure_region"
+   },
+   {
+    "id": "key_vault",
+    "service": "Key Vault",
+    "group": "azure_region"
+   },
+   {
+    "id": "azure_monitor",
+    "service": "Azure Monitor",
+    "group": "azure_cloud"
+   }
+  ],
+  "edges": [
+   {
+    "from": "users",
+    "to": "azure_front_door",
+    "style": "solid"
+   },
+   {
+    "from": "azure_front_door",
+    "to": "azure_functions",
+    "style": "solid"
+   },
+   {
+    "from": "azure_functions",
+    "to": "cosmos_db",
+    "style": "solid"
+   },
+   {
+    "from": "azure_functions",
+    "to": "blob_storage",
+    "style": "solid"
+   },
+   {
+    "from": "azure_functions",
+    "to": "key_vault",
+    "style": "solid"
+   },
+   {
+    "from": "azure_monitor",
+    "to": "azure_functions",
+    "style": "dashed"
+   },
+   {
+    "from": "azure_monitor",
+    "to": "cosmos_db",
+    "style": "dashed"
+   },
+   {
+    "from": "azure_monitor",
+    "to": "blob_storage",
+    "style": "dashed"
+   },
+   {
+    "from": "azure_monitor",
+    "to": "key_vault",
+    "style": "dashed"
+   }
+  ]
+ }
+}
