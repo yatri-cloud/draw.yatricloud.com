@@ -9,17 +9,17 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const body = await req.json();
 
-    const response = await fetch("https://oss-ai.excalidraw.com/v1/ai/diagram-to-code/generate", {
+    const response = await fetch("https://oss-ai.excalidraw.com/v1/ai/diagram-to-code/generate-streaming", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/json",
+        "Accept": "text/event-stream",
       },
       body: JSON.stringify(body),
     });
 
     const status = response.status;
-    const contentType = response.headers.get("content-type") || "application/json";
+    const contentType = response.headers.get("content-type") || "text/event-stream";
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -32,11 +32,10 @@ export async function POST(req: Request): Promise<Response> {
       });
     }
 
-    const data = await response.json();
-    return new Response(JSON.stringify(data), {
+    return new Response(response.body, {
       status: 200,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": contentType,
         ...cors(),
       },
     });

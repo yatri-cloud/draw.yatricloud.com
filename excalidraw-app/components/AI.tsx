@@ -1,14 +1,17 @@
 import {
   DiagramToCodePlugin,
   exportToBlob,
+  getNonDeletedElements,
   getTextFromElements,
   MIME_TYPES,
+  parseSSEStream,
   TTDDialog,
 } from "@excalidraw/excalidraw";
 import { getDataURL } from "@excalidraw/excalidraw/data/blob";
 import { safelyParseJSON } from "@excalidraw/common";
 import { RequestError } from "@excalidraw/excalidraw/errors";
 
+import type { StreamChunk } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import { TTDIndexedDBAdapter } from "../data/TTDStorage";
@@ -352,11 +355,18 @@ export const AIComponents = ({
   return (
     <>
       <DiagramToCodePlugin
-        generate={async ({ frame, children }) => {
+        generate={async ({ frame, children, onPartial }) => {
           const appState = excalidrawAPI.getAppState();
 
+          // SAFETY: This should never happen, but log it just in case
+          if (children.some((el) => el.isDeleted)) {
+            console.error(
+              "[NONDELETED][INVARIANT] Generated children elements should not be `isDeleted: true`",
+            );
+          }
+
           const blob = await exportToBlob({
-            elements: children,
+            elements: getNonDeletedElements(children),
             appState: {
               ...appState,
               exportBackground: true,
@@ -374,14 +384,14 @@ export const AIComponents = ({
           const isProxy = backendUrl.includes("/api/ai");
           const fetchUrl = isProxy
             ? `${backendUrl}/diagram-to-code`
-            : `${backendUrl}/v1/ai/diagram-to-code/generate`;
+            : `${backendUrl}/v1/ai/diagram-to-code/generate-streaming`;
 
           const response = await fetch(
             fetchUrl,
             {
               method: "POST",
               headers: {
-                Accept: "application/json",
+                Accept: "text/event-stream, application/json",
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
@@ -415,16 +425,66 @@ export const AIComponents = ({
             throw new Error(errorJSON.message || text);
           }
 
-          try {
-            const { html } = await response.json();
-
-            if (!html) {
+          const contentType = response.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            const json = await response.json();
+            if (!json?.html) {
               throw new Error("Generation failed (invalid response)");
             }
-            return { html };
-          } catch (error: any) {
+            return { html: json.html };
+          }
+
+          const reader = response.body?.getReader();
+
+          if (!reader) {
             throw new Error("Generation failed (invalid response)");
           }
+
+          let html = "";
+          let streamError: Error | null = null;
+
+          for await (const data of parseSSEStream(reader)) {
+            if (data === "[DONE]") {
+              break;
+            }
+
+            const chunk = safelyParseJSON(data) as StreamChunk | null;
+
+            if (!chunk) {
+              continue;
+            }
+
+            switch (chunk.type) {
+              case "content": {
+                if (chunk.delta) {
+                  html += chunk.delta;
+                  onPartial?.(html);
+                }
+                break;
+              }
+              case "error": {
+                streamError = new Error(
+                  chunk.error.message || "Generation failed",
+                );
+                break;
+              }
+              case "done": {
+                break;
+              }
+            }
+          }
+
+          if (streamError) {
+            throw streamError;
+          }
+
+          if (!html.trim()) {
+            throw new Error("Generation failed (invalid response)");
+          }
+
+          return {
+            html,
+          };
         }}
       />
 

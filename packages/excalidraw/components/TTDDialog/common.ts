@@ -183,7 +183,7 @@ export const convertMermaidToExcalidraw = async ({
     setError(null);
 
     data.current = {
-      elements: convertToExcalidrawElements(elements, {
+      elements: convertToExcalidrawElements(elements as any, {
         regenerateIds: true,
       }),
       files,
@@ -245,7 +245,7 @@ export const insertToEditor = ({
     elements: newElements,
     files,
     position: "center",
-    fitToContent: true,
+    fit: "scale-down",
   });
   app.setOpenDialog(null);
 
