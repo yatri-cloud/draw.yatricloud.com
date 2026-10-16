@@ -33,6 +33,13 @@ import {
 import { addLogosToDiagram, loadLogos, logoFiles } from "./logos";
 import { freeInsertPosition } from "./placement";
 
+import {
+  chunkIntoStages,
+  splitChainedEdges,
+  stripMermaidStyling,
+  toPhaseLayout,
+} from "./wrapLayout";
+
 import type { FrameRatio } from "./frame";
 
 import type { DiagramDirection } from "./TTDContext";
@@ -252,11 +259,30 @@ const pickArrangement = async (
 ) => {
   const directions: DiagramDirection[] =
     direction === "auto" ? ["LR", "TB"] : [direction];
+  // plain left-to-right / top-to-bottom, with each spacing preset
+  const variants: { definition: string; presets: [number, number][] }[] =
+    directions.map((dir) => ({
+      definition: applyDiagramDirection(definition, dir),
+      presets: LAYOUT_SPACING_PRESETS,
+    }));
+  // wrapped: groups (or stages of a long chain) as columns or rows
+  const single = splitChainedEdges(definition);
+  const grouped = chunkIntoStages(single) ?? single;
+  for (const outer of direction === "auto"
+    ? (["LR", "TB"] as const)
+    : ([direction === "LR" ? "LR" : "TB"] as const)) {
+    const wrapped = toPhaseLayout(grouped, outer);
+    if (wrapped) {
+      variants.push({
+        definition: wrapped,
+        presets: LAYOUT_SPACING_PRESETS.slice(0, 2),
+      });
+    }
+  }
   let best: { definition: string; config: unknown; score: number } | null =
     null;
-  for (const dir of directions) {
-    const candidate = applyDiagramDirection(definition, dir);
-    for (const [nodeSpacing, rankSpacing] of LAYOUT_SPACING_PRESETS) {
+  for (const { definition: candidate, presets } of variants) {
+    for (const [nodeSpacing, rankSpacing] of presets) {
       const config = mermaidLayoutConfig(nodeSpacing, rankSpacing);
       try {
         const parsed = await api.parseMermaidToExcalidraw(
@@ -313,7 +339,9 @@ export const convertMermaidToExcalidraw = async ({
 
   const cleanedDefinition = mergeReverseEdges(
     applyDiagramDirection(
-      cleanMermaidMessage(mermaidDefinition) || mermaidDefinition,
+      stripMermaidStyling(
+        cleanMermaidMessage(mermaidDefinition) || mermaidDefinition,
+      ),
       direction,
     ),
   );

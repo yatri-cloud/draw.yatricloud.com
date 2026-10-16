@@ -147,7 +147,12 @@ const add = ({ id, title, provider, category, kind, file }) => {
           ...(vendor.test(title) || provider === "aws"
             ? [title.toLowerCase()]
             : []),
-          ...(provider === "aws" && vendor.test(title) && short.length > 3
+          // plain one-word short names ("Connect", "Glue", "Shield") are everyday
+          // words; only distinctive ones (several words, CamelCase) match alone
+          ...(provider === "aws" &&
+          vendor.test(title) &&
+          short.length > 3 &&
+          (/\s/.test(short) || /[a-z][A-Z]|[A-Z]{2}/.test(short))
             ? [short.toLowerCase()]
             : []),
           ...(provider === "azure" ? [`azure ${short}`.toLowerCase()] : []),
