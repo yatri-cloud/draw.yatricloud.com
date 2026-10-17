@@ -14,7 +14,7 @@
  *   YATRI_AI_BASE     = https://your-yatri-ai-server.com  (no trailing slash)
  *   YATRI_AI_API_KEY  = <your key>
  */
-import { describeImages, imageList } from "./_vision";
+import { describeImages, imageList } from "./_vision.js";
 
 export const maxDuration = 60;
 
