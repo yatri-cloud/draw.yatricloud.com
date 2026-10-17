@@ -38,6 +38,11 @@ function yatriApiDevPlugin(envVars: Record<string, string>): Plugin {
           return next();
         }
         try {
+          // the handlers live outside the app root, so Vite does not watch
+          // them; reload on every call so edits apply without a restart
+          server.moduleGraph
+            .getModulesByFile(file)
+            ?.forEach((m) => server.moduleGraph.invalidateModule(m));
           const mod = await server.ssrLoadModule(file);
           const handler = mod[req.method];
           if (typeof handler !== "function") {

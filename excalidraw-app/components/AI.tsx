@@ -14,9 +14,10 @@ import { RequestError } from "@excalidraw/excalidraw/errors";
 import type { StreamChunk } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
-import { AISketchDialog, AISketchTrigger } from "./AISketch/AISketch";
-
 import { TTDIndexedDBAdapter } from "../data/TTDStorage";
+
+import { AISketchDialog, AISketchTrigger } from "./AISketch/AISketch";
+import { describeWireframe } from "./wireframeLayout";
 
 // ─── Mermaid system prompt shared by all providers ───────────────────────────
 const MERMAID_SYSTEM_PROMPT = `You are a Mermaid.js diagram expert. Your sole job is to convert the user's natural-language description into a valid Mermaid diagram definition.
@@ -388,21 +389,20 @@ export const AIComponents = ({
             ? `${backendUrl}/diagram-to-code`
             : `${backendUrl}/v1/ai/diagram-to-code/generate-streaming`;
 
-          const response = await fetch(
-            fetchUrl,
-            {
-              method: "POST",
-              headers: {
-                Accept: "text/event-stream, application/json",
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                texts: textFromFrameChildren,
-                image: dataURL,
-                theme: appState.theme,
-              }),
+          const response = await fetch(fetchUrl, {
+            method: "POST",
+            headers: {
+              Accept: "text/event-stream, application/json",
+              "Content-Type": "application/json",
             },
-          );
+            body: JSON.stringify({
+              texts: textFromFrameChildren,
+              image: dataURL,
+              theme: appState.theme,
+              // the shapes as an outline, for models that read text only
+              layout: describeWireframe(frame, getNonDeletedElements(children)),
+            }),
+          });
 
           if (!response.ok) {
             const text = await response.text();
