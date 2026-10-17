@@ -17,6 +17,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { TTDIndexedDBAdapter } from "../data/TTDStorage";
 
 import { AISketchDialog, AISketchTrigger } from "./AISketch/AISketch";
+import { AIDeckDialog, AIDeckTrigger } from "./AIDeck/AIDeck";
 import { describeWireframe } from "./wireframeLayout";
 
 // ─── Mermaid system prompt shared by all providers ───────────────────────────
@@ -527,6 +528,8 @@ export const AIComponents = ({
 
       <AISketchTrigger />
       <AISketchDialog />
+      <AIDeckTrigger />
+      <AIDeckDialog />
     </>
   );
 };

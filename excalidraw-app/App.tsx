@@ -134,6 +134,7 @@ import DebugCanvas, {
 import { useSimulatedCollaborators } from "./debugCollaborators";
 import { AIComponents } from "./components/AI";
 import { aiSketchOpenAtom } from "./components/AISketch/AISketch";
+import { aiDeckOpenAtom } from "./components/AIDeck/AIDeck";
 import { FlowAnimation } from "./components/FlowAnimation/FlowAnimation";
 import { ExcalidrawPlusIframeExport } from "./ExcalidrawPlusIframeExport";
 
@@ -399,6 +400,7 @@ const ExcalidrawWrapper = () => {
 
   const [, setShareDialogState] = useAtom(shareDialogStateAtom);
   const [, setAISketchOpen] = useAtom(aiSketchOpenAtom);
+  const [, setAIDeckOpen] = useAtom(aiDeckOpenAtom);
   const [collabAPI] = useAtom(collabAPIAtom);
   const [isCollaborating] = useAtomWithInitialValue(isCollaboratingAtom, () => {
     return isCollaborationLink(window.location.href);
@@ -1019,6 +1021,42 @@ const ExcalidrawWrapper = () => {
 
         <CommandPalette
           customCommandPaletteItems={[
+            {
+              label: "AI Deck",
+              category: DEFAULT_CATEGORIES.tools,
+              keywords: [
+                "ai",
+                "deck",
+                "slides",
+                "presentation",
+                "ppt",
+                "pptx",
+                "pdf",
+                "guide",
+              ],
+              icon: MagicIcon,
+              perform: () => {
+                setAIDeckOpen("create");
+              },
+            },
+            {
+              label: "Export slides",
+              category: DEFAULT_CATEGORIES.export,
+              keywords: [
+                "export",
+                "slides",
+                "present",
+                "presentation",
+                "ppt",
+                "pptx",
+                "pdf",
+                "frames",
+              ],
+              icon: MagicIcon,
+              perform: () => {
+                setAIDeckOpen("export");
+              },
+            },
             {
               label: "AI Sketch",
               category: DEFAULT_CATEGORIES.tools,

@@ -21,6 +21,7 @@ function yatriApiDevPlugin(envVars: Record<string, string>): Plugin {
       __dirname,
       "../api/ai/architecture.ts",
     ),
+    "/api/ai/deck": path.resolve(__dirname, "../api/ai/deck.ts"),
     "/api/ai/diagram-to-code": path.resolve(
       __dirname,
       "../api/ai/diagram-to-code.ts",
