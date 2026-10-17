@@ -10,6 +10,8 @@
  *   YATRI_AI_BASE     = https://your-yatri-ai-server.com  (no trailing slash)
  *   YATRI_AI_API_KEY  = <your key>
  */
+import { DIAGRAM_INSTRUCTION, describeImages, imageList } from "./_vision";
+
 export const maxDuration = 60;
 
 const MAX_PROMPT_LENGTH = 4000;
@@ -68,15 +70,31 @@ export async function POST(req: Request): Promise<Response> {
     return json(503, { error: "Yatri AI not configured on server" });
   }
 
-  let body: { prompt?: string };
+  let body: { prompt?: string; images?: string[] };
   try {
     body = await req.json();
   } catch {
     return json(400, { error: "Invalid JSON body" });
   }
-  const prompt = (body.prompt ?? "").trim().slice(0, MAX_PROMPT_LENGTH);
-  if (!prompt) {
+  let prompt = (body.prompt ?? "").trim().slice(0, MAX_PROMPT_LENGTH);
+  const images = imageList(body.images);
+  if (!prompt && !images.length) {
     return json(400, { error: "prompt is required" });
+  }
+  if (images.length) {
+    // the vision model reads the picture; the text model below draws from its description
+    try {
+      const description = await describeImages(
+        images,
+        DIAGRAM_INSTRUCTION,
+        req.signal,
+      );
+      prompt = `Redraw the architecture in the attached image as faithfully as possible, keeping its groups, services and links.\nIMAGE DESCRIPTION:\n${description}${
+        prompt ? `\n\nUSER REQUEST: ${prompt}` : ""
+      }`;
+    } catch (err: any) {
+      return json(502, { error: err.message });
+    }
   }
 
   const messages = [

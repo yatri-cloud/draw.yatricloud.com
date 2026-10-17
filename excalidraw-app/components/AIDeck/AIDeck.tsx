@@ -16,6 +16,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
 import { atom, useAtom, useSetAtom } from "../../app-jotai";
+import {
+  ImageAttach,
+  imageFileToDataURL,
+  MAX_IMAGES,
+  pastedImages,
+} from "../AISketch/ImageAttach";
 import { normalizeSpec, renderSketch } from "../AISketch/renderSketch";
 
 import {
@@ -152,6 +158,8 @@ export const AIDeckDialog = () => {
   const app = useApp();
   const [open, setOpen] = useAtom(aiDeckOpenAtom);
   const [content, setContent] = useState("");
+  // screenshots, notes or pages to build the deck from (read by the vision model)
+  const [images, setImages] = useState<string[]>([]);
   const [count, setCount] = useState(10);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -185,25 +193,31 @@ export const AIDeckDialog = () => {
   };
 
   const generate = async () => {
-    const text = content.trim();
-    if (!text || progress) {
+    let text = content.trim();
+    if ((!text && !images.length) || progress) {
       return;
     }
     setError("");
     abortRef.current = new AbortController();
     const { signal } = abortRef.current;
     try {
-      setProgress("Planning the story...");
+      setProgress(
+        images.length ? "Reading the images..." : "Planning the story...",
+      );
       const [icons, logos, planned] = await Promise.all([
         loadIcons(),
         loadLogos().catch(() => undefined),
         postJSON(
           "/api/ai/deck",
-          { action: "plan", content: text, slides: count },
+          { action: "plan", content: text, slides: count, images },
           signal,
         ),
       ]);
       const plan: DeckPlan = normalizePlan(planned.plan, count);
+      // with images, the server returns the text it read from them; the slides are written from it
+      if (typeof planned.source === "string" && planned.source.trim()) {
+        text = planned.source;
+      }
       const iconNames = Object.keys(icons);
 
       // write the slides a few at a time, several calls in parallel
@@ -313,6 +327,7 @@ export const AIDeckDialog = () => {
         fit: "scale-down",
       });
       setDeckTitle(plan.title);
+      setImages([]);
       setProgress(null);
       setOpen("export");
     } catch (err: any) {
@@ -422,12 +437,32 @@ export const AIDeckDialog = () => {
             maxLength={12000}
             autoFocus
             onChange={(event) => setContent(event.target.value)}
+            onPaste={async (event) => {
+              const files = pastedImages(event);
+              if (files.length) {
+                event.preventDefault();
+                const urls = await Promise.all(
+                  files
+                    .slice(0, MAX_IMAGES - images.length)
+                    .map(imageFileToDataURL),
+                );
+                setImages((current) =>
+                  [...current, ...urls].slice(0, MAX_IMAGES),
+                );
+              }
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
                 generate();
               }
             }}
+          />
+          <ImageAttach
+            images={images}
+            onChange={setImages}
+            label="Add images"
+            hint="up to 3: slides, notes, book pages or screenshots to build the deck from"
           />
           <div className="AIDeck__examples">
             {EXAMPLES.map((example) => (
@@ -471,7 +506,7 @@ export const AIDeckDialog = () => {
               size="large"
               label={progress ? "Creating..." : "Create deck"}
               status={progress ? "loading" : null}
-              disabled={!content.trim()}
+              disabled={!content.trim() && !images.length}
               onClick={generate}
             />
           </div>

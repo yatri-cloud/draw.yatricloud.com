@@ -16,6 +16,8 @@
  *   YATRI_AI_BASE     = https://your-yatri-ai-server.com  (no trailing slash)
  *   YATRI_AI_API_KEY  = <your key>
  */
+import { describeImages, imageList } from "./_vision";
+
 export const maxDuration = 60;
 
 const MAX_LAYOUT_LENGTH = 16000;
@@ -291,7 +293,7 @@ export async function POST(req: Request): Promise<Response> {
     return json(503, { message: "Yatri AI not configured on server" });
   }
 
-  let body: { layout?: string; theme?: string };
+  let body: { layout?: string; theme?: string; image?: string };
   try {
     body = await req.json();
   } catch {
@@ -305,6 +307,24 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const { overview, notes, parts } = splitIntoParts(layout);
+
+  // When the gateway has a vision model, it looks at the drawing itself and
+  // catches what the outline misses: scribbled icons, pasted screenshots,
+  // arrows and the overall style. Without one, the outline is enough.
+  const images = imageList(body.image);
+  const seen = images.length
+    ? await describeImages(
+        images,
+        "This is a hand-drawn UI wireframe. Describe it for the developer who will build it: the page type, each region from top to bottom (and left to right) with what it contains, which elements are buttons, inputs, images, icons (say what each icon shows), cards, lists or charts, any screenshots pasted in, and any handwritten notes or arrows that explain behaviour. Be concrete and brief. Plain text.",
+        req.signal,
+      ).catch(() => "")
+    : "";
+  const seenText = seen
+    ? `\n\nWHAT THE WIREFRAME LOOKS LIKE (from the image; use it to understand icons, images and notes):\n${seen.slice(
+        0,
+        3000,
+      )}`
+    : "";
   const noteText = notes.length
     ? `\n\nDESIGNER NOTES (follow them where they apply to your part; never show them on the page):\n${notes
         .map((n) => `- ${n}`)
@@ -316,7 +336,7 @@ export async function POST(req: Request): Promise<Response> {
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
-        content: `PAGE OVERVIEW (context only):\n${overview}${noteText}\n\nWRITE PART ${
+        content: `PAGE OVERVIEW (context only):\n${overview}${seenText}${noteText}\n\nWRITE PART ${
           index + 1
         } OF ${parts.length}:\n${part}`,
       },

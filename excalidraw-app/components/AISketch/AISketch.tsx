@@ -37,6 +37,12 @@ import {
   normalizeArchSpec,
   renderArchitecture,
 } from "./renderArchitecture";
+import {
+  ImageAttach,
+  imageFileToDataURL,
+  MAX_IMAGES,
+  pastedImages,
+} from "./ImageAttach";
 import { normalizeSpec, renderSketch } from "./renderSketch";
 
 import "./AISketch.scss";
@@ -96,6 +102,8 @@ export const AISketchDialog = () => {
   const [open, setOpen] = useAtom(aiSketchOpenAtom);
   const mode: AISketchMode = open || "sketch";
   const [prompt, setPrompt] = useState("");
+  // photos or screenshots of a diagram to redraw (read by the vision model)
+  const [images, setImages] = useState<string[]>([]);
   const [status, setStatus] = useState<null | "loading">(null);
   const [error, setError] = useState("");
   const [frameRatio, setFrameRatio] = useState<FrameRatio>(DEFAULT_FRAME_RATIO);
@@ -167,7 +175,7 @@ export const AISketchDialog = () => {
     const [logos, manifest, raw] = await Promise.all([
       loadLogos().catch(() => undefined),
       loadCloudIconManifest().catch(() => null),
-      requestSpec("/api/ai/architecture", { prompt: text }),
+      requestSpec("/api/ai/architecture", { prompt: text, images }),
     ]);
     const spec = normalizeArchSpec(raw);
     const icons = buildArchitectureIcons(logos ?? {}, manifest);
@@ -184,7 +192,7 @@ export const AISketchDialog = () => {
 
   const generate = async () => {
     const text = prompt.trim();
-    if (!text || status) {
+    if ((!text && !images.length) || status) {
       return;
     }
     setStatus("loading");
@@ -194,6 +202,7 @@ export const AISketchDialog = () => {
       if (mode === "architecture") {
         await generateArchitecture(text);
         setStatus(null);
+        setImages([]);
         setOpen(false);
         return;
       }
@@ -204,6 +213,7 @@ export const AISketchDialog = () => {
       const spec = normalizeSpec(
         await requestSpec("/api/ai/sketch", {
           prompt: text,
+          images,
           icons: Object.keys(icons),
         }),
         icons,
@@ -216,6 +226,7 @@ export const AISketchDialog = () => {
         : [renderSketch(spec, icons, logos)];
       await insert(candidates, logos, diagramName(spec.title, text));
       setStatus(null);
+      setImages([]);
       setOpen(false);
     } catch (err: any) {
       if (err?.name !== "AbortError") {
@@ -270,12 +281,29 @@ export const AISketchDialog = () => {
         maxLength={4000}
         autoFocus
         onChange={(event) => setPrompt(event.target.value)}
+        onPaste={async (event) => {
+          const files = pastedImages(event);
+          if (files.length) {
+            event.preventDefault();
+            const urls = await Promise.all(
+              files
+                .slice(0, MAX_IMAGES - images.length)
+                .map(imageFileToDataURL),
+            );
+            setImages((current) => [...current, ...urls].slice(0, MAX_IMAGES));
+          }
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
             event.preventDefault();
             generate();
           }
         }}
+      />
+      <ImageAttach
+        images={images}
+        onChange={setImages}
+        hint="or paste one: a whiteboard photo, paper sketch or diagram screenshot to redraw"
       />
       <div className="AISketch__examples">
         {(mode === "architecture" ? ARCHITECTURE_EXAMPLES : EXAMPLES).map(
@@ -322,7 +350,7 @@ export const AISketchDialog = () => {
           size="large"
           label={status ? "Drawing..." : "Generate"}
           status={status}
-          disabled={!prompt.trim()}
+          disabled={!prompt.trim() && !images.length}
           onClick={generate}
         />
       </div>

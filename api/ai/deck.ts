@@ -14,6 +14,8 @@
  *   YATRI_AI_BASE     = https://your-yatri-ai-server.com  (no trailing slash)
  *   YATRI_AI_API_KEY  = <your key>
  */
+import { describeImages, imageList } from "./_vision";
+
 export const maxDuration = 60;
 
 const MAX_CONTENT_LENGTH = 12000;
@@ -97,6 +99,7 @@ export async function POST(req: Request): Promise<Response> {
     from?: number;
     to?: number;
     icons?: string[];
+    images?: string[];
   };
   try {
     body = await req.json();
@@ -104,7 +107,8 @@ export async function POST(req: Request): Promise<Response> {
     return json(400, { error: "Invalid JSON body" });
   }
   const content = (body.content ?? "").trim().slice(0, MAX_CONTENT_LENGTH);
-  if (!content) {
+  const images = imageList(body.images);
+  if (!content && !(body.action === "plan" && images.length)) {
     return json(400, { error: "content is required" });
   }
 
@@ -151,15 +155,31 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     if (body.action === "plan") {
+      let source = content;
+      if (images.length) {
+        // the vision model transcribes the images; the deck is written from that text
+        const description = await describeImages(
+          images,
+          "Transcribe and explain the content of these images for someone writing a presentation about them: all headings, text, numbers, tables, charts with their values, and what each diagram shows. Keep the original language. Plain text, no markdown fences. Do not invent anything.",
+          req.signal,
+        );
+        source = `${
+          content ? `${content}\n\n` : ""
+        }FROM THE ATTACHED IMAGES:\n${description}`.slice(
+          0,
+          MAX_CONTENT_LENGTH,
+        );
+      }
       const count = Math.min(
         MAX_SLIDES,
         Math.max(MIN_SLIDES, Math.round(Number(body.slides) || 10)),
       );
       const plan = await ask(
         PLAN_PROMPT,
-        `Number of slides: ${count}\n\nPROMPT OR CONTENT:\n${content}`,
+        `Number of slides: ${count}\n\nPROMPT OR CONTENT:\n${source}`,
       );
-      return json(200, { plan });
+      // the app sends `source` back with each "fill" call so the slides see the image text too
+      return json(200, { plan, source });
     }
 
     if (body.action === "fill") {
