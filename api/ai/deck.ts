@@ -267,6 +267,8 @@ export async function POST(req: Request): Promise<Response> {
         ).catch(() => null);
         slides = [...slides, ...unique(more?.slides ?? []).slice(0, missing)];
       }
+      // exactly the requested count, the summary kept last
+      slides = slides.slice(0, summary ? count - 1 : count);
       if (summary) {
         slides.push(summary);
       }
