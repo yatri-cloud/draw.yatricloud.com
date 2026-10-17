@@ -45,6 +45,8 @@ import {
 } from "./ImageAttach";
 import { normalizeSpec, renderSketch } from "./renderSketch";
 
+import { VoiceInput } from "./VoiceInput";
+
 import "./AISketch.scss";
 
 import type { IconBundle } from "./renderSketch";
@@ -299,6 +301,13 @@ export const AISketchDialog = () => {
             generate();
           }
         }}
+      />
+      <VoiceInput
+        onText={(text) =>
+          setPrompt((current) =>
+            current.trim() ? `${current.trim()} ${text}` : text,
+          )
+        }
       />
       <ImageAttach
         images={images}

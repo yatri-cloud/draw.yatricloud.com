@@ -146,13 +146,13 @@ export const renderSlideImages = async (
   return images;
 };
 
-const fileSafe = (name: string) =>
+export const fileSafe = (name: string) =>
   name
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60) || "deck";
 
-const download = (blob: Blob, fileName: string) => {
+export const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -223,7 +223,7 @@ export const exportPPTX = async (slides: SlideImage[], deckTitle: string) => {
     }
   }
   const blob = (await pptx.write({ outputType: "blob" })) as Blob;
-  download(blob, `${fileSafe(deckTitle)}.pptx`);
+  downloadBlob(blob, `${fileSafe(deckTitle)}.pptx`);
 };
 
 export const exportSlidesPDF = async (
@@ -245,7 +245,7 @@ export const exportSlidesPDF = async (
     }
     doc.addImage(slide.png, "PNG", 0, 0, 1920, 1080, undefined, "FAST");
   });
-  download(doc.output("blob"), `${fileSafe(deckTitle)}-slides.pdf`);
+  downloadBlob(doc.output("blob"), `${fileSafe(deckTitle)}-slides.pdf`);
 };
 
 /** A4 handout: each slide with its key points and the speaker notes as prose. */
@@ -349,7 +349,7 @@ export const exportGuidePDF = async (
     }
     y += 28;
   });
-  download(doc.output("blob"), `${fileSafe(deckTitle)}-guide.pdf`);
+  downloadBlob(doc.output("blob"), `${fileSafe(deckTitle)}-guide.pdf`);
 };
 
 export const deckMarkdown = (
@@ -393,14 +393,14 @@ export const exportImagesZip = async (
     files[`slides/${String(i + 1).padStart(2, "0")}.png`] = slide.png;
   });
   const zip = zipSync(files, { level: 0 });
-  download(
+  downloadBlob(
     new Blob([zip], { type: "application/zip" }),
     `${fileSafe(deckTitle)}.zip`,
   );
 };
 
 export const exportMarkdown = (slides: SlideImage[], deckTitle: string) =>
-  download(
+  downloadBlob(
     new Blob([deckMarkdown(slides, deckTitle)], { type: "text/markdown" }),
     `${fileSafe(deckTitle)}.md`,
   );
@@ -411,20 +411,33 @@ const escapeHTML = (text: string) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!),
   );
 
-/** One self-contained web page that presents the deck: arrows, space, F for full screen. */
-export const exportHTML = (slides: SlideImage[], deckTitle: string) => {
+/**
+ * One self-contained web page that presents the deck: arrows, space, F for
+ * full screen, N for notes, and "Play narration", which reads each slide
+ * aloud with the browser's voice and moves on by itself.
+ */
+export const exportHTML = (
+  slides: SlideImage[],
+  deckTitle: string,
+  narration?: { texts: string[]; language: { bcp: string } },
+) => {
+  const notes = slides.map(
+    (s, i) => narration?.texts[i] ?? s.meta?.notes ?? "",
+  );
   const sections = slides
     .map(
       (slide, i) =>
         `<section${i ? "" : ' class="on"'}><img src="${
           slide.dataURL
         }" alt="${escapeHTML(slide.title)}"><aside>${escapeHTML(
-          slide.meta?.notes ?? "",
+          notes[i],
         )}</aside></section>`,
     )
     .join("\n");
   const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="${escapeHTML(
+    narration?.language.bcp ?? "en",
+  )}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHTML(deckTitle)}</title>
 <style>
 html,body{margin:0;height:100%;background:#111;color:#eee;font:15px/1.5 system-ui,sans-serif;overflow:hidden}
@@ -433,19 +446,28 @@ section.on{display:flex}
 img{max-width:100vw;max-height:100vh;object-fit:contain;background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.5)}
 aside{display:none;position:fixed;left:0;right:0;bottom:0;padding:16px 24px;background:rgba(0,0,0,.82);max-height:30vh;overflow:auto}
 body.notes aside{display:block}
-nav{position:fixed;right:16px;bottom:12px;font-size:13px;opacity:.6}
+nav{position:fixed;right:16px;bottom:12px;font-size:13px;opacity:.75;display:flex;gap:12px;align-items:center}
+nav button{font:inherit;color:#111;background:#fff;border:0;border-radius:999px;padding:4px 12px;cursor:pointer}
 </style></head><body>
 ${sections}
-<nav><span id="n">1</span> / ${
+<nav><button id="play" type="button">Play narration</button><span><span id="n">1</span> / ${
     slides.length
-  } &middot; arrows to move, N notes, F full screen</nav>
+  } &middot; arrows to move, N notes, F full screen</span></nav>
 <script>
-var s=document.querySelectorAll("section"),i=0;
-function go(d){s[i].classList.remove("on");i=Math.max(0,Math.min(s.length-1,i+d));s[i].classList.add("on");document.getElementById("n").textContent=i+1;}
+var s=document.querySelectorAll("section"),i=0,playing=false,lang=${JSON.stringify(
+    narration?.language.bcp ?? "en-US",
+  )};
+function voice(){var v=speechSynthesis.getVoices(),l=lang.toLowerCase();return v.find(function(x){return x.lang.toLowerCase()===l})||v.find(function(x){return x.lang.toLowerCase().slice(0,2)===l.slice(0,2)})}
+function speak(){speechSynthesis.cancel();if(!playing)return;var t=s[i].querySelector("aside").textContent.trim();var parts=t.match(/[^.!?\u0964]+[.!?\u0964]*/g)||[];var at=i;
+(function next(k){if(!playing||at!==i)return;if(k>=parts.length){setTimeout(function(){if(playing&&at===i&&i<s.length-1){go(1)}else if(i===s.length-1){stop()}},800);return}var u=new SpeechSynthesisUtterance(parts[k].trim());u.lang=lang;var v=voice();if(v)u.voice=v;u.onend=function(){next(k+1)};u.onerror=function(){next(k+1)};speechSynthesis.speak(u)})(0)}
+function stop(){playing=false;speechSynthesis.cancel();document.getElementById("play").textContent="Play narration"}
+function go(d){s[i].classList.remove("on");i=Math.max(0,Math.min(s.length-1,i+d));s[i].classList.add("on");document.getElementById("n").textContent=i+1;speak()}
+document.getElementById("play").addEventListener("click",function(e){e.stopPropagation();if(playing){stop()}else{playing=true;this.textContent="Stop narration";speak()}});
+if(!window.speechSynthesis)document.getElementById("play").style.display="none";
 addEventListener("keydown",function(e){if(["ArrowRight","ArrowDown"," ","PageDown"].includes(e.key))go(1);else if(["ArrowLeft","ArrowUp","PageUp"].includes(e.key))go(-1);else if(e.key==="n")document.body.classList.toggle("notes");else if(e.key==="f")document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();});
 addEventListener("click",function(e){go(e.clientX<innerWidth/3?-1:1);});
 </script></body></html>`;
-  download(
+  downloadBlob(
     new Blob([html], { type: "text/html" }),
     `${fileSafe(deckTitle)}.html`,
   );

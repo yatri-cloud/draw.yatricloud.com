@@ -21,8 +21,19 @@ import {
   pastedImages,
 } from "../AISketch/ImageAttach";
 
+import { VoiceInput } from "../AISketch/VoiceInput";
+
+import {
+  createNarrator,
+  NARRATION_LANGUAGES,
+  narrationTexts,
+  ziaVoiceAvailable,
+} from "./narration";
+import { recordDeckVideo } from "./video";
 import {
   collectSlideFrames,
+  downloadBlob,
+  fileSafe,
   exportGuidePDF,
   exportHTML,
   exportImagesZip,
@@ -51,6 +62,7 @@ import "./AIDeck.scss";
 
 import type { Drawn } from "./drawVisuals";
 import type { SlideImage } from "./exportDeck";
+import type { NarrationChoice, NarrationLanguage } from "./narration";
 import type { DeckPlan, Slide } from "./renderSlide";
 import type { IconBundle } from "../AISketch/renderSketch";
 
@@ -129,12 +141,25 @@ export const AIDeckTrigger = () => {
   );
 };
 
-type Format = "present" | "pptx" | "pdf" | "guide" | "zip" | "md" | "html";
+type Format =
+  | "present"
+  | "video"
+  | "pptx"
+  | "pdf"
+  | "guide"
+  | "zip"
+  | "md"
+  | "html";
 const FORMATS: { value: Format; label: string; hint: string }[] = [
   {
     value: "present",
     label: "Present",
     hint: "Full screen, arrow keys, N for notes",
+  },
+  {
+    value: "video",
+    label: "Video (.mp4)",
+    hint: "Slides draw themselves in, with narration or captions",
   },
   {
     value: "pptx",
@@ -156,7 +181,7 @@ const FORMATS: { value: Format; label: string; hint: string }[] = [
   {
     value: "html",
     label: "Web slideshow (.html)",
-    hint: "One file that plays in any browser",
+    hint: "One file that plays in any browser, with narration",
   },
 ];
 
@@ -170,7 +195,14 @@ export const AIDeckDialog = () => {
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [deckTitle, setDeckTitle] = useState("");
-  const [presenting, setPresenting] = useState<SlideImage[] | null>(null);
+  const [presenting, setPresenting] = useState<{
+    slides: SlideImage[];
+    narration?: { texts: string[]; language: NarrationLanguage };
+  } | null>(null);
+  // read the speaker notes aloud: "off", "same" (the slides' language) or a language code
+  const [narration, setNarration] = useState<NarrationChoice>("same");
+  const [captions, setCaptions] = useState(true);
+  const [ziaVoice, setZiaVoice] = useState<boolean | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const scene = useCallback(
@@ -184,7 +216,11 @@ export const AIDeckDialog = () => {
 
   if (presenting) {
     return (
-      <Presenter slides={presenting} onClose={() => setPresenting(null)} />
+      <Presenter
+        slides={presenting.slides}
+        narration={presenting.narration}
+        onClose={() => setPresenting(null)}
+      />
     );
   }
   if (!open) {
@@ -373,7 +409,40 @@ export const AIDeckDialog = () => {
       );
       return;
     }
+    abortRef.current = new AbortController();
+    const { signal } = abortRef.current;
+    const notesOf = (frame: typeof frames[number]) =>
+      ((frame.customData?.deck as any)?.notes as string | undefined) ?? "";
     try {
+      // narration in the chosen language (translated by Zia when needed)
+      let spoken: { texts: string[]; language: NarrationLanguage } | undefined;
+      if (
+        narration !== "off" &&
+        (format === "present" || format === "video" || format === "html")
+      ) {
+        setProgress("Preparing the narration...");
+        spoken = await narrationTexts(frames.map(notesOf), narration, signal);
+      }
+      if (format === "video") {
+        const withVoice = !!spoken && (await ziaVoiceAvailable());
+        const title = deckTitle || frames[0]?.name || "Slides";
+        const video = await recordDeckVideo({
+          slides: frames.map((frame, i) => ({
+            frame,
+            notes: spoken?.texts[i] ?? notesOf(frame),
+          })),
+          scene: source,
+          language: spoken?.language ?? null,
+          withVoice,
+          // without a recorded voice, captions carry the narration
+          captions: captions || !withVoice,
+          signal,
+          onProgress: setProgress,
+        });
+        downloadBlob(video.blob, `${fileSafe(title)}.${video.extension}`);
+        setProgress(null);
+        return;
+      }
       setProgress(`Rendering slide 0 of ${frames.length}...`);
       const slides = await renderSlideImages(source, frames, (done, total) =>
         setProgress(`Rendering slide ${done} of ${total}...`),
@@ -384,7 +453,7 @@ export const AIDeckDialog = () => {
       switch (format) {
         case "present":
           setOpen(false);
-          setPresenting(slides);
+          setPresenting({ slides, narration: spoken });
           break;
         case "pptx":
           await exportPPTX(slides, title);
@@ -402,17 +471,22 @@ export const AIDeckDialog = () => {
           exportMarkdown(slides, title);
           break;
         case "html":
-          exportHTML(slides, title);
+          exportHTML(slides, title, spoken);
           break;
       }
       setProgress(null);
     } catch (err: any) {
       setProgress(null);
-      setError(err?.message || "Export failed.");
+      if (err?.name !== "AbortError") {
+        setError(err?.message || "Export failed.");
+      }
     }
   };
 
   const frameCount = open === "export" ? collectSlideFrames(scene()).length : 0;
+  if (open === "export" && ziaVoice === null) {
+    ziaVoiceAvailable().then(setZiaVoice);
+  }
 
   return (
     <Dialog
@@ -480,6 +554,13 @@ export const AIDeckDialog = () => {
               }
             }}
           />
+          <VoiceInput
+            onText={(text) =>
+              setContent((current) =>
+                current.trim() ? `${current.trim()} ${text}` : text,
+              )
+            }
+          />
           <ImageAttach
             images={images}
             onChange={setImages}
@@ -542,6 +623,38 @@ export const AIDeckDialog = () => {
                 } ready. Uses the selected frames, or else the latest AI deck, or else every frame on the canvas, in slide order.`
               : "No frames yet. Create a deck, or draw frames (Frame tool, F) to use as slides."}
           </p>
+          <div className="AIDeck__narration">
+            <label>
+              <span>Narration</span>
+              <select
+                value={narration}
+                disabled={!!progress}
+                onChange={(event) => setNarration(event.target.value)}
+              >
+                <option value="off">Off</option>
+                <option value="same">Speaker notes, same language</option>
+                {NARRATION_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    Speaker notes in {l.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="AIDeck__check">
+              <input
+                type="checkbox"
+                checked={captions}
+                disabled={!!progress}
+                onChange={(event) => setCaptions(event.target.checked)}
+              />
+              Captions in video
+            </label>
+            <span className="AIDeck__hint">
+              {ziaVoice
+                ? "Voice: Zia Text to Speech"
+                : "Voice: your browser's voice when presenting. Zia Text to Speech is not answering, so videos get captions instead of a voice."}
+            </span>
+          </div>
           <div className="AIDeck__formats">
             {FORMATS.map((format) => (
               <button
@@ -560,7 +673,16 @@ export const AIDeckDialog = () => {
           </div>
           {error && <div className="AIDeck__error">{error}</div>}
           {progress && (
-            <div className="AIDeck__hint AIDeck__progress">{progress}</div>
+            <div className="AIDeck__hint AIDeck__progress">
+              {progress}{" "}
+              <button
+                type="button"
+                className="AIDeck__cancel"
+                onClick={() => abortRef.current?.abort()}
+              >
+                Cancel
+              </button>
+            </div>
           )}
         </>
       )}
@@ -571,14 +693,42 @@ export const AIDeckDialog = () => {
 /** Full-screen slideshow of rendered slides. */
 const Presenter = ({
   slides,
+  narration,
   onClose,
 }: {
   slides: SlideImage[];
+  narration?: { texts: string[]; language: NarrationLanguage };
   onClose: () => void;
 }) => {
   const [index, setIndex] = useState(0);
   const [notes, setNotes] = useState(false);
+  // with narration on, each slide is read aloud and the show moves on by itself
+  const [autoplay, setAutoplay] = useState(!!narration);
   const rootRef = useRef<HTMLDivElement>(null);
+  const narratorRef = useRef<Awaited<ReturnType<typeof createNarrator>> | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!narration) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      narratorRef.current ??= await createNarrator(narration.language);
+      if (cancelled) {
+        return;
+      }
+      await narratorRef.current.speak(narration.texts[index] ?? "");
+      if (!cancelled && autoplay && index < slides.length - 1) {
+        setTimeout(() => !cancelled && setIndex((i) => i + 1), 800);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      narratorRef.current?.stop();
+    };
+  }, [index, narration, autoplay, slides.length]);
 
   useEffect(() => {
     rootRef.current?.requestFullscreen?.().catch(() => {});
@@ -599,6 +749,8 @@ const Presenter = ({
         setIndex(slides.length - 1);
       } else if (event.key.toLowerCase() === "n") {
         setNotes((v) => !v);
+      } else if (event.key.toLowerCase() === "a") {
+        setAutoplay((v) => !v);
       } else if (event.key === "Escape") {
         onClose();
       } else {
@@ -637,11 +789,15 @@ const Presenter = ({
       }
     >
       <img src={slide.dataURL} alt={slide.title} />
-      {notes && slide.meta?.notes && (
-        <div className="AIDeckPresenter__notes">{slide.meta.notes}</div>
+      {notes && (narration?.texts[index] || slide.meta?.notes) && (
+        <div className="AIDeckPresenter__notes">
+          {narration?.texts[index] || slide.meta?.notes}
+        </div>
       )}
       <div className="AIDeckPresenter__bar">
-        {index + 1} / {slides.length} · arrows to move · N notes · Esc to exit
+        {index + 1} / {slides.length} · arrows to move · N notes
+        {narration ? ` · A autoplay ${autoplay ? "on" : "off"}` : ""} · Esc to
+        exit
       </div>
     </div>
   );

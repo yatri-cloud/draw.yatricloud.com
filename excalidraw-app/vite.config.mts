@@ -22,6 +22,9 @@ function yatriApiDevPlugin(envVars: Record<string, string>): Plugin {
       "../api/ai/architecture.ts",
     ),
     "/api/ai/deck": path.resolve(__dirname, "../api/ai/deck.ts"),
+    "/api/ai/transcribe": path.resolve(__dirname, "../api/ai/transcribe.ts"),
+    "/api/ai/translate": path.resolve(__dirname, "../api/ai/translate.ts"),
+    "/api/ai/speech": path.resolve(__dirname, "../api/ai/speech.ts"),
     "/api/ai/diagram-to-code": path.resolve(
       __dirname,
       "../api/ai/diagram-to-code.ts",
