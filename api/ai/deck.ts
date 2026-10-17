@@ -23,20 +23,49 @@ const MIN_SLIDES = 3;
 const MAX_SLIDES = 40;
 const MAX_FILL = 4;
 
-const LAYOUTS = "title, points, steps, compare, stat, quote, diagram, summary";
+const LAYOUT_GUIDE = `- title: the opening slide (slide 1 only).
+- hook: a provocative question or surprising fact that opens the story (usually slide 2).
+- points: 3 to 5 short ideas, each with an icon.
+- cards: 2 to 4 concepts side by side, each with a heading and one line.
+- steps: a process in order (3 to 5 steps).
+- timeline: things that happen over time, or phases with dates or stages.
+- compare: two sides (before/after, myth/fact, A vs B, pros/cons).
+- stat: one striking number the content gives or that is well known.
+- quote: one memorable line, with who said it.
+- statement: one big insight in a single sentence.
+- diagram: how a few parts connect, drawn as a hand-drawn sketch.
+- flow: a process with decisions or a request/response sequence, drawn as a flowchart.
+- architecture: a cloud or software system (servers, databases, cloud services). Only for technical topics.
+- logos: real tools, products or companies the content names (3 to 8).
+- chart: numbers to compare (3 to 7 values).
+- summary: the takeaways (last slide only).`;
 
 const PLAN_PROMPT = `You plan presentation decks in the style of whiteboard explainer videos: one clear idea per slide, short punchy titles, a story that builds from the hook to the takeaway.
 
 Plan a deck from the user's prompt or content. Output ONLY minified JSON on one line, no markdown fences, no comments:
 {"title": string, "subtitle": string, "slides": [{"layout": string, "title": string}]}
 
+Layouts:
+${LAYOUT_GUIDE}
+
 Rules:
-- Exactly the requested number of slides. Slide 1 has layout "title" and repeats the deck title; the last slide has layout "summary".
-- layout is one of: ${LAYOUTS}.
-  points = 3 to 5 ideas with icons; steps = a process in order; compare = two sides (before/after, myth/fact, A vs B); stat = one striking number; quote = one memorable line; diagram = how parts connect or flow.
-- Mix layouts so the deck feels varied: do not use the same layout more than twice in a row.
+- Exactly the requested number of slides. Slide 1 is "title"; the last slide is "summary".
+- Every slide covers a DIFFERENT sub-topic. Never repeat or rephrase a title; for long decks, go deeper (history, how it works, parts, examples, mistakes, tips, comparisons, numbers, future) rather than repeating.
+- Use many different layouts. Never the same layout twice in a row, and no layout more than a quarter of the deck. Use diagram, flow, architecture, chart, logos and timeline wherever the content fits them.
 - Slide titles: 2 to 7 words, specific, in the language of the user's content.
-- If the user pasted content, follow its structure and facts; never invent statistics that are not in it (use stat only for numbers the content gives, or for well-known facts).`;
+- If the user pasted content, follow its structure and facts; never invent statistics.`;
+
+const EXTEND_PROMPT = `You add slides to a planned presentation deck. Output ONLY minified JSON on one line: {"slides": [{"layout": string, "title": string}]}
+
+Layouts:
+${LAYOUT_GUIDE}
+
+Rules:
+- Add exactly the requested number of NEW slides, each on a sub-topic none of the existing titles covers. Never reuse or rephrase an existing title.
+- Do not use "title" or "summary". Vary the layouts.`;
+
+/** How the speaker notes should read, following github.com/blader/humanizer. */
+const NOTES_STYLE = `Write "notes" like a person explaining out loud: plain words, specific facts, short and medium sentences, contractions are fine. Do not use these words: additionally, crucial, delve, deep dive, enhance, key (as an adjective), landscape, pivotal, robust, showcase, testament, underscore, vibrant, valuable, seamless, journey, unlock, game-changer. No "not only... but also", no "it's not X, it's Y", no lists of three for rhythm, no dramatic one-line closers, no rhetorical questions answered right away, no "in today's world", no sales language, no dashes as connectors.`;
 
 const fillPrompt = (
   icons: string[],
@@ -46,15 +75,21 @@ const fillPrompt = (
 SLIDE fields (use only those for its layout; omit the rest):
 {
  "layout": string, "title": string,
- "highlight": string,                       // 1 to 2 words copied exactly from the title, the key word to mark in red
- "subtitle": string,                        // layout "title" only: one line under the title, under 12 words
- "points": [{"text": string, "icon": ICON}],// layouts points, steps, summary: 3 to 5 items, each under 12 words
- "left": {"heading": string, "points": [string]},  // layout compare: 2 to 4 points per side, each under 9 words
+ "highlight": string,                        // 1 to 2 words copied exactly from the title, the key word to mark
+ "subtitle": string,                         // title: one line under the title, under 12 words
+ "question": string,                         // hook: the question or surprising fact, under 16 words
+ "statement": string,                        // statement: the insight, under 18 words
+ "points": [{"text": string, "icon": ICON, "logo": string}],  // points, steps, summary: 3 to 5 items under 12 words; "logo" only when the item is a real product or company
+ "cards": [{"heading": string, "text": string, "icon": ICON, "logo": string}],  // cards: 2 to 4; heading 1 to 3 words, text under 12 words
+ "timeline": [{"when": string, "text": string}],  // timeline: 3 to 6 entries; when is a year, date or stage, text under 10 words
+ "left": {"heading": string, "points": [string]},  // compare: 2 to 4 points per side, each under 9 words
  "right": {"heading": string, "points": [string]},
- "stat": {"value": string, "label": string, "icon": ICON},   // layout stat: value MUST be a number with its unit, like "73%", "37x", "₹18,000", "2 min"; label under 10 words
- "quote": {"text": string, "by": string},   // layout quote: under 25 words
- "diagram": string,                         // layout diagram: one sentence describing a simple flow of 3 to 6 named parts to draw
- "notes": string                            // every slide: 2 to 4 sentences the presenter says, adding detail beyond the slide text
+ "stat": {"value": string, "label": string, "icon": ICON},  // stat: value MUST be a number with its unit, like "73%", "37x", "₹18,000"; label under 10 words
+ "quote": {"text": string, "by": string},    // quote: under 25 words
+ "logos": [{"name": string, "note": string}],  // logos: real product or company names exactly as written officially, note under 6 words
+ "chart": {"caption": string, "data": [{"label": string, "value": number, "display": string}]},  // chart: 3 to 7 values
+ "diagram": string,                          // diagram, flow, architecture: one or two sentences naming the 3 to 8 parts and how they connect
+ "notes": string                             // every slide: 2 to 4 sentences the presenter says, adding detail beyond the slide text
 }
 
 Rules:
@@ -62,8 +97,34 @@ Rules:
 - ICON is one of ICON_NAMES; pick the closest match.
 - Use the facts of the user's content when it is given; do not invent statistics.
 - Write in the language of the user's content.
+- ${NOTES_STYLE}
 
 ICON_NAMES: ${icons.join(", ")}`;
+
+/** Titles that say the same thing: lower case, no punctuation, no filler words. */
+const titleKey = (title: string) =>
+  title
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(
+      (w) =>
+        w &&
+        ![
+          "the",
+          "a",
+          "an",
+          "of",
+          "and",
+          "to",
+          "in",
+          "how",
+          "what",
+          "is",
+          "your",
+        ].includes(w),
+    )
+    .join(" ");
 
 const extractJSON = (text: string): any => {
   const unfenced = text.replace(/```[a-zA-Z]*/g, "");
@@ -178,8 +239,39 @@ export async function POST(req: Request): Promise<Response> {
         PLAN_PROMPT,
         `Number of slides: ${count}\n\nPROMPT OR CONTENT:\n${source}`,
       );
+      // the model sometimes repeats slides in long decks: drop repeats, then ask for new ones
+      const seen = new Set<string>();
+      const unique = (list: PlanSlide[]) =>
+        (Array.isArray(list) ? list : []).filter((slide) => {
+          const key = titleKey(String(slide?.title ?? ""));
+          if (!key || seen.has(key)) {
+            return false;
+          }
+          seen.add(key);
+          return true;
+        });
+      let slides = unique(plan?.slides);
+      const summary =
+        slides.length > 2 && slides[slides.length - 1].layout === "summary"
+          ? slides.pop()
+          : undefined;
+      for (let round = 0; round < 2 && slides.length + 1 < count; round++) {
+        const missing = count - 1 - slides.length;
+        const more = await ask(
+          EXTEND_PROMPT,
+          `Deck: ${plan?.title}\nExisting slides:\n${slides
+            .map((s) => `- ${s.title}`)
+            .join(
+              "\n",
+            )}\n\nAdd ${missing} new slides.\n\nPROMPT OR CONTENT:\n${source}`,
+        ).catch(() => null);
+        slides = [...slides, ...unique(more?.slides ?? []).slice(0, missing)];
+      }
+      if (summary) {
+        slides.push(summary);
+      }
       // the app sends `source` back with each "fill" call so the slides see the image text too
-      return json(200, { plan, source });
+      return json(200, { plan: { ...plan, slides }, source });
     }
 
     if (body.action === "fill") {

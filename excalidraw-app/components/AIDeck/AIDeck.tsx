@@ -13,8 +13,6 @@ import { randomId } from "@excalidraw/common";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { ExcalidrawElement } from "@excalidraw/element/types";
-
 import { atom, useAtom, useSetAtom } from "../../app-jotai";
 import {
   ImageAttach,
@@ -22,7 +20,6 @@ import {
   MAX_IMAGES,
   pastedImages,
 } from "../AISketch/ImageAttach";
-import { normalizeSpec, renderSketch } from "../AISketch/renderSketch";
 
 import {
   collectSlideFrames,
@@ -35,15 +32,24 @@ import {
   renderSlideImages,
 } from "./exportDeck";
 import {
+  drawArchitecture,
+  drawChart,
+  drawFlow,
+  drawSketch,
+} from "./drawVisuals";
+import {
+  makeTheme,
   normalizePlan,
   normalizeSlide,
   renderSlide,
+  VISUAL_LAYOUTS,
   SLIDE_H,
   SLIDE_W,
 } from "./renderSlide";
 
 import "./AIDeck.scss";
 
+import type { Drawn } from "./drawVisuals";
 import type { SlideImage } from "./exportDeck";
 import type { DeckPlan, Slide } from "./renderSlide";
 import type { IconBundle } from "../AISketch/renderSketch";
@@ -269,37 +275,47 @@ export const AIDeckDialog = () => {
         slides[0].subtitle = plan.subtitle;
       }
 
-      // diagram slides get a hand-drawn sketch from AI Sketch
-      const diagramIndexes = slides
-        .map((s, i) => (s.layout === "diagram" && s.diagram ? i : -1))
+      // diagram, flow, architecture and chart slides are drawn by the other AI features
+      const theme = makeTheme();
+      const visuals = new Map<number, Drawn>();
+      const visualIndexes = slides
+        .map((s, i) =>
+          (VISUAL_LAYOUTS.includes(s.layout) && s.diagram) ||
+          (s.layout === "chart" && s.chart)
+            ? i
+            : -1,
+        )
         .filter((i) => i >= 0);
-      if (diagramIndexes.length) {
-        setProgress("Drawing the diagrams...");
+      if (visualIndexes.length) {
+        setProgress(`Drawing ${visualIndexes.length} diagrams...`);
       }
-      const logoIds = new Set<string>();
-      const diagrams = new Map<number, ExcalidrawElement[]>();
+      const post = (url: string, body: unknown) => postJSON(url, body, signal);
       await pool(
-        diagramIndexes.map((i) => async () => {
+        visualIndexes.map((i) => async () => {
+          const slide = slides[i];
           try {
-            const data = await postJSON(
-              "/api/ai/sketch",
-              { prompt: slides[i].diagram, icons: iconNames },
-              signal,
+            visuals.set(
+              i,
+              slide.layout === "chart"
+                ? drawChart(slide, icons)
+                : slide.layout === "flow"
+                ? await drawFlow(slide, { post, logos })
+                : slide.layout === "architecture"
+                ? await drawArchitecture(slide, { post, logos })
+                : await drawSketch(slide, { post, icons, logos }),
             );
-            const spec = normalizeSpec(data.spec, icons, logos);
-            const drawn = renderSketch(
-              { ...spec, title: undefined, footer: undefined },
-              icons,
-              logos,
-              "LR",
-            );
-            drawn.logoIds.forEach((id) => logoIds.add(id));
-            diagrams.set(i, drawn.elements);
           } catch (err) {
             if (signal.aborted) {
               throw err;
             }
-            // the slide falls back to a list
+            // a flow or architecture that fails is drawn as an AI Sketch instead
+            if (slide.layout === "flow" || slide.layout === "architecture") {
+              try {
+                visuals.set(i, await drawSketch(slide, { post, icons, logos }));
+              } catch {
+                // the slide falls back to a list
+              }
+            }
           }
         }),
         CONCURRENCY,
@@ -307,22 +323,28 @@ export const AIDeckDialog = () => {
 
       setProgress("Placing the slides...");
       const deckId = randomId();
+      const logoIds = new Set<string>();
       const elements = slides.flatMap((slide, i) =>
         renderSlide(slide, {
           index: i,
           deckTitle: plan.title,
           deckId,
           icons,
-          diagram: diagrams.get(i),
+          logos,
+          logoIds,
+          theme,
+          visual: visuals.get(i)?.elements,
           originX: (i % COLUMNS) * (SLIDE_W + GAP_X),
           originY: Math.floor(i / COLUMNS) * (SLIDE_H + GAP_Y),
         }),
       );
-      const files =
-        logos && logoIds.size ? await logoFiles([...logoIds], logos) : null;
+      const files = {
+        ...(logos && logoIds.size ? await logoFiles([...logoIds], logos) : {}),
+        ...Object.assign({}, ...[...visuals.values()].map((v) => v.files)),
+      };
       app.addElementsFromPasteOrLibrary({
         elements,
-        files,
+        files: Object.keys(files).length ? files : null,
         position: freeInsertPosition(app, elements),
         fit: "scale-down",
       });

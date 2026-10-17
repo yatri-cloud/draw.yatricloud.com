@@ -21,6 +21,8 @@ export type DeckMeta = {
   stat?: { value: string; label: string };
   quote?: { text: string; by?: string };
   notes?: string;
+  /** the slide's text as plain lines (decks made after the layout update) */
+  lines?: string[];
 };
 
 export type SlideImage = {
@@ -167,6 +169,9 @@ const slideText = (slide: SlideImage) => {
   const lines: string[] = [];
   if (!m) {
     return lines;
+  }
+  if (Array.isArray(m.lines)) {
+    return m.lines;
   }
   if (m.subtitle) {
     lines.push(m.subtitle);
